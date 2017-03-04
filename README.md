@@ -1,5 +1,10 @@
 #StockGraph
-A total implementation of stock graph,written by JavaScript and HTML5.
+An integrated implementation of stock graph,written by JavaScript and HTML5.
+- Graphs with 11 different time ranges for any stock supported in the Hundsun finance openapi.
+- Markets supported with China,Hongkong,Ameria.
+- Page-able scroll views containing a graph for each different range.
+- Dragging to pan and pinching to zoom are both supported.
+- Dynamically updated axis labels.
 
 
 一个完整的股票K线图实现，使用JavaScript和Html5编写。
@@ -27,3 +32,4 @@ A total implementation of stock graph,written by JavaScript and HTML5.
 - MACD指标
 - 十字光标
 - 左右滑、缩放
+- 单页切换股票
