@@ -7,7 +7,7 @@ An integrated implementation of stock graph,written by JavaScript and HTML5.
 - Dynamically updated axis labels.
 
 
-一个完整的股票K线图实现，使用JavaScript和Html5编写。
+##一个完整的股票K线图实现，使用JavaScript和Html5编写。
 ###K线类别：
 - 1分钟
 - 5分钟
@@ -18,13 +18,16 @@ An integrated implementation of stock graph,written by JavaScript and HTML5.
 - 周K
 - 月K
 - 年K
+
 ###分时图类别：
 - 分时
 - 五日
+
 ###市场范围：
 - 中国大陆所有交易市场（包括A股、期货、中小板、文交所等）
 - 港股所有交易市场
 - 美股主要交易市场
+
 ###功能范围
 - K线图、分时图
 - 交易量图
