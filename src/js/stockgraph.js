@@ -11,7 +11,7 @@
 		var container,realCanvas,cacheCanvas,realContext,cacheContext;
 		//配置变量
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
-			fontSize,showCursor;
+			fontSize,showCursor,maColor;
 		//方法&对象
 		var init,draw,resize,refreshCache,candlePainter,barPainter,
 			kControl,trendControl,textPainter,trendPainter,initDom,initCanvas,
@@ -23,6 +23,7 @@
 			painterStack=[];
 			//[跌，涨]
 			kColor=["#32a647","#fa5d5d"];
+			maColor=["#f5a623","#2e84e6","#bd10e0"];
 			fontSize=24;
 			totalTime=800;
 			speed=16/totalTime;
@@ -91,7 +92,7 @@
 			//配置变量
 			var data,layout,width,height,leftX,rightX,topY,bottomY,
 				max,min,candleY,candleX,amount,gapOccupy,range,middleX,
-				middleY;
+				middleY,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
 				drawFrame,drawUpCandle,drawDownCandle,calcAxis,insideOf;
@@ -112,7 +113,7 @@
 
 			//计算颜色属性，计算y坐标值
 			calcAxis=function(){
-				for(i=0;i<amount;i++){
+				for(i=start;i<end;i++){
 					//颜色指标
 					if(data[i][4]>=data[i][1]){
 						data[i].color=1;
@@ -127,7 +128,7 @@
 					data[i].axis.push((data[i].axis[3]+data[i].axis[0])/2);
 				}
 			};
-			
+
 			/*
 			 * 为可变配置赋值
 			 * 计算数据展示总数
@@ -136,12 +137,12 @@
 			 * 计算每个数据的颜色标记：1-涨，0-跌
 			 */
 			handleData=function(){
-				amount=data.length;
+				amount=end-start;
 				kWidth=width*(1-gapOccupy)/amount;
 				gapWidth=width*gapOccupy/(amount+1);
-				max=data[0][2];
-				min=data[0][3];
-				for(var i=1;i<amount;i++){
+				max=data[start][2];
+				min=data[start][3];
+				for(var i=start+1;i<end;i++){
 					if(max<data[i][2]){
 						max=data[i][2];
 					}
@@ -245,7 +246,7 @@
 			drawFrame=function(){
 				drawGrid();
 				candleX=leftX+gapWidth;
-				for(var i=0;i<amount;i++){
+				for(var i=start;i<end;i++){
 					if(data[i].color==1){
 						drawUpCandle(candleX,data[i]);
 					}else{
@@ -267,11 +268,13 @@
 			 * 根据传入的数据初始化配置变量，每次执行drawReady就认为数据有变化
 			 * 接收二维数组为参数，每一项包含[日期，开盘价，最高价，最低价，收盘价，成交量];
 			 */
-			drawReady=function(candleData){
+			drawReady=function(candleData,startPosition,endPosition){
 				if(!candleData || candleData.length==0){
 					return ;
 				}
 				data=candleData;
+				start=startPosition;
+				end=endPosition;
 				handleData();
 			};
 
@@ -306,7 +309,7 @@
 		barPainter=(function(){
 			//数据
 			var data,initValue,max,width,height,leftX,rightX,topY,
-				bottomY,barX,layout,amount;
+				bottomY,barX,layout,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,drawFrame,handleData,drawGrid,
 				drawBar,calcAxis,insideOf;
@@ -324,16 +327,15 @@
 
 			//计算交易量柱的高度
 			calcAxis=function(){
-				for(var i=0;i<amount;i++){
+				for(var i=start;i<end;i++){
 					data[i].height=data[i][5]/max*height;
 				}
 			};
 
 			//计算成交量的最大值
 			handleData=function(){
-				amount=data.length;
-				max=data[0][5];
-				for(var i=1;i<amount;i++){
+				max=data[start][5];
+				for(var i=start+1;i<end;i++){
 					if(max<data[i][5]){
 						max=data[i][5];
 					}
@@ -383,7 +385,7 @@
 			drawFrame=function(){
 				drawGrid();
 				barX=leftX+gapWidth;
-				for(var i=0;i<amount;i++){
+				for(var i=start;i<end;i++){
 					drawBar(barX,data[i]);
 					barX+=gapWidth+kWidth;
 				}
@@ -401,11 +403,13 @@
 			 * 根据传入的数据初始化配置变量，每次执行drawReady就认为数据有变化
 			 * 接收二维数组为参数，每一项包含[日期，开盘价，最高价，最低价，收盘价，成交量];
 			 */
-			drawReady=function(barData){
+			drawReady=function(barData,startPosition,endPosition){
 				if(!barData || barData.length==0){
 					return ;
 				}
 				data=barData;
+				start=startPosition;
+				end=endPosition;
 				handleData();
 			};
 
@@ -441,9 +445,56 @@
 			//数据
 			var data;
 			//控制参数
-			var totalLength,minScale,maxScale,scaleStep,scrollStep,currScale,currPosition;
+			var totalLength,minScale,maxScale,scaleStep,scrollStep,currScale,
+				currPosition,
+				dayCount;
 			//方法
-			var init,draw,enlarge,narrow,scrollRight,scrollLeft;
+			var init,draw,enlarge,narrow,scrollRight,scrollLeft,
+				calcMA;
+			//固定变量
+			scaleStep=1;
+			scrollStep=1;
+			dayCount=[5,10,20];
+
+
+			/*
+			 * 计算均线值，传入股票数据和均线日期
+			 * maData={
+			 * 	5:[[K线ma5，交易量ma5]，[]...]
+			 * }
+			 */
+			calcMA=function(){
+				var i,j,k, l,sumk,sumb,maData;
+				maData={};
+				for(i=0,l=dayCount.length;i<l;i++){
+					maData[dayCount[i]]=[];
+					for(j=0;j<totalLength;j++){
+						if(j<dayCount[i]){
+							maData[dayCount[i]].push(["-","-"]);
+							continue;
+						}
+						sumk=0;
+						sumb=0;
+						for(k=0;k<dayCount[i];k++){
+							sumk+=data[j-k][4];
+							sumb+=data[j-k][5];
+						}
+						maData[dayCount[i]].push([sumk/dayCount[i],sumb/dayCount[i]]);
+					}
+					maData[dayCount[i]].push("-");
+				}
+				data.maData=maData;
+			};
+
+			//控制器启动绘图
+			draw=function(){
+				var start;
+				start=currPosition-currScale;
+				for(var i in painterStack){
+					painterStack[i].drawReady(data,start,currPosition);
+				}
+				animate();
+			};
 
 			//初始化比例尺
 			init=function(rawData){
@@ -451,10 +502,9 @@
 				totalLength=rawData.length;
 				minScale=totalLength>40 ? 40:totalLength;
 				maxScale=totalLength>100 ? 100:totalLength;
-				scaleStep=1;
-				scrollStep=1;
 				currScale=totalLength>60 ? 60:totalLength;
 				currPosition=totalLength;
+				calcMA();
 				draw();
 			};
 
@@ -511,15 +561,6 @@
 				}else{
 					return ;
 				}
-			};
-
-			draw=function(){
-				var showData;
-				showData=data.slice(currPosition-currScale,currPosition);
-				for(var i in painterStack){
-					painterStack[i].drawReady(showData);
-				}
-				animate();
 			};
 
 			return {
