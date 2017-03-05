@@ -23,7 +23,7 @@
 			painterStack=[];
 			//[跌，涨]
 			kColor=["#32a647","#fa5d5d"];
-			maColor=["#f5a623","#2e84e6","#bd10e0"];
+			maColor={5:"#f5a623",10:"#2e84e6",20:"#bd10e0"};
 			fontSize=24;
 			totalTime=800;
 			speed=16/totalTime;
@@ -95,7 +95,7 @@
 				middleY,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
-				drawFrame,drawUpCandle,drawDownCandle,calcAxis,insideOf;
+				drawFrame,drawUpCandle,drawDownCandle,calcAxis,insideOf,drawMA;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
@@ -111,21 +111,19 @@
 				bottomY=topY+height;
 			};
 
-			//计算颜色属性，计算y坐标值
+			//计算y坐标值
 			calcAxis=function(){
+				var i,j,k;
 				for(i=start;i<end;i++){
-					//颜色指标
-					if(data[i][4]>=data[i][1]){
-						data[i].color=1;
-					}else{
-						data[i].color=0;
-					}
 					//蜡烛坐标计算，[开盘价，最高价，最低价，收盘价，中点]y坐标
 					data[i].axis=[];
-					for(var j=1;j<5;j++){
+					for(j=1;j<5;j++){
 						data[i].axis.push(topY+height*(max-data[i][j])/range);
 					}
 					data[i].axis.push((data[i].axis[3]+data[i].axis[0])/2);
+					for(k in data.maData){
+						data.maData[k][i].maAxis=topY+height*(max-data.maData[k][i][0])/range;
+					}
 				}
 			};
 
@@ -137,17 +135,39 @@
 			 * 计算每个数据的颜色标记：1-涨，0-跌
 			 */
 			handleData=function(){
+				var i,j,b,e;
 				amount=end-start;
 				kWidth=width*(1-gapOccupy)/amount;
 				gapWidth=width*gapOccupy/(amount+1);
+				//处理ma头尾补图形引起的作用于变化问题
 				max=data[start][2];
 				min=data[start][3];
-				for(var i=start+1;i<end;i++){
+				if(start>0){
+					b=start-1;
+				}else{
+					b=start;
+				}
+				if(end<data.length){
+					e=end+1;
+				}else{
+					e=end;
+				}
+				for(i=b;i<e;i++){
 					if(max<data[i][2]){
 						max=data[i][2];
 					}
+					for(j in data.maData){
+						if(max<data.maData[j][i][0]){
+							max=data.maData[j][i][0];
+						}
+					}
 					if(min>data[i][3]){
 						min=data[i][3];
+					}
+					for(j in data.maData){
+						if(min>data.maData[j][i][0]){
+							min=data.maData[j][i][0];
+						}
 					}
 				}
 				range=max-min;
@@ -241,6 +261,35 @@
 				cacheContext.lineTo(middleX,middleY+(value.axis[2]-middleY)*process);
 				cacheContext.stroke();
 			};
+
+			/*
+			 * 绘制ma均线
+			 * 传入索引，表示绘制哪一个均线
+			 */
+			drawMA=function(index){
+				var value,x,l;
+				value=data.maData[index];
+				x=leftX+gapWidth+kWidth/2;
+				l=start+Math.floor((end-start)*process);
+				cacheContext.beginPath();
+				cacheContext.strokeStyle=maColor[index];
+				cacheContext.lineWidth=1;
+				//为ma补足头部图形
+				if(start>0){
+					cacheContext.moveTo(leftX,(value[start].maAxis+topY+height*(max-value[start-1][0])/range)/2);
+				}
+				for(var i=start;i<l;i++){
+					cacheContext.lineTo(x,value[i].maAxis);
+					x+=gapWidth+kWidth;
+				}
+				//为ma补足尾部图形
+				if(i==end){
+					if(value[i]!="-"){
+						cacheContext.lineTo(rightX,(value[i-1].maAxis+value[i].maAxis)/2);
+					}
+				}
+				cacheContext.stroke();
+			};
 			
 			//根据process进度情况，绘制K线蜡烛图图形帧
 			drawFrame=function(){
@@ -253,6 +302,9 @@
 						drawDownCandle(candleX,data[i]);
 					}
 					candleX+=gapWidth+kWidth;
+				}
+				for(i in data.maData){
+					drawMA(i);
 				}
 			};
 
@@ -267,6 +319,7 @@
 			/*
 			 * 根据传入的数据初始化配置变量，每次执行drawReady就认为数据有变化
 			 * 接收二维数组为参数，每一项包含[日期，开盘价，最高价，最低价，收盘价，成交量];
+			 * candleData本身为数组，包含maData指针指向均线数组，axis属性指向坐标数组
 			 */
 			drawReady=function(candleData,startPosition,endPosition){
 				if(!candleData || candleData.length==0){
@@ -312,7 +365,7 @@
 				bottomY,barX,layout,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,drawFrame,handleData,drawGrid,
-				drawBar,calcAxis,insideOf;
+				drawBar,calcAxis,insideOf,drawMA;
 			//固定配置
 			layout={a:0.74,b:0.01,c:0.01,d:0.01};
 
@@ -327,17 +380,38 @@
 
 			//计算交易量柱的高度
 			calcAxis=function(){
-				for(var i=start;i<end;i++){
-					data[i].height=data[i][5]/max*height;
+				var i,k;
+				for(i=start;i<end;i++){
+					data[i].baHeight=data[i][5]/max*height;
+					for(k in data.maData){
+						data.maData[k][i].maBaAxis=bottomY-height*data.maData[k][i][1]/max;
+					}
 				}
+
 			};
 
 			//计算成交量的最大值
 			handleData=function(){
+				var i,j,b,e;
 				max=data[start][5];
-				for(var i=start+1;i<end;i++){
+				if(start>0){
+					b=start-1;
+				}else{
+					b=start;
+				}
+				if(end<data.length){
+					e=end+1;
+				}else{
+					e=end;
+				}
+				for(i=b;i<e;i++){
 					if(max<data[i][5]){
 						max=data[i][5];
+					}
+					for(j in data.maData){
+						if(max<data.maData[j][i][1]){
+							max=data.maData[j][i][1];
+						}
 					}
 				}
 				calcAxis();
@@ -374,11 +448,37 @@
 				cacheContext.fillStyle=kColor[data.color];
 				cacheContext.moveTo(x,bottomY);
 				cacheContext.lineTo(x+kWidth,bottomY);
-				y=bottomY-data.height*process;
+				y=bottomY-data.baHeight*process;
 				cacheContext.lineTo(x+kWidth,y);
 				cacheContext.lineTo(x,y);
 				cacheContext.closePath();
 				cacheContext.fill();
+			};
+
+			//绘制成交量ma均线
+			drawMA=function(index){
+				var value,x,l;
+				value=data.maData[index];
+				x=leftX+gapWidth+kWidth/2;
+				l=start+Math.floor((end-start)*process);
+				cacheContext.beginPath();
+				cacheContext.strokeStyle=maColor[index];
+				cacheContext.lineWidth=1;
+				//为ma补足头部图形
+				if(start>0){
+					cacheContext.moveTo(leftX,(value[start].maBaAxis+bottomY-height*value[start-1][1]/max)/2);
+				}
+				for(var i=start;i<l;i++){
+					cacheContext.lineTo(x,value[i].maBaAxis);
+					x+=gapWidth+kWidth;
+				}
+				//为ma补足尾部图形
+				if(i==end){
+					if(value[i]!="-"){
+						cacheContext.lineTo(rightX,(value[i-1].maBaAxis+value[i].maBaAxis)/2);
+					}
+				}
+				cacheContext.stroke();
 			};
 
 			//根据process进度情况，绘制交易量图形帧
@@ -388,6 +488,9 @@
 				for(var i=start;i<end;i++){
 					drawBar(barX,data[i]);
 					barX+=gapWidth+kWidth;
+				}
+				for(i in data.maData){
+					drawMA(i);
 				}
 			};
 
@@ -450,7 +553,7 @@
 				dayCount;
 			//方法
 			var init,draw,enlarge,narrow,scrollRight,scrollLeft,
-				calcMA;
+				calcMA,calcColor;
 			//固定变量
 			scaleStep=1;
 			scrollStep=1;
@@ -486,6 +589,18 @@
 				data.maData=maData;
 			};
 
+			//计算颜色指标
+			calcColor=function(){
+				for(var i=0;i<totalLength;i++){
+					//颜色指标
+					if(data[i][4]>=data[i][1]){
+						data[i].color=1;
+					}else{
+						data[i].color=0;
+					}
+				}
+			};
+
 			//控制器启动绘图
 			draw=function(){
 				var start;
@@ -505,6 +620,7 @@
 				currScale=totalLength>60 ? 60:totalLength;
 				currPosition=totalLength;
 				calcMA();
+				calcColor();
 				draw();
 			};
 
@@ -653,6 +769,15 @@
 			hammerManager.on("panend",setup(panend));
 			hammerManager.on("pinchin",pinchin);
 			hammerManager.on("pinchout",pinchout);
+
+			//鼠标滚动缩放事件
+			container.addEventListener("mousewheel", function(event) {
+				if(event.wheelDelta>0){
+					currControl.narrow();
+				}else if(event.wheelDelta<0){
+					currControl.enlarge();
+				}
+			});
 		};
 
 		/*
@@ -662,7 +787,7 @@
 		 */
 		animate=function(){
 			cacheContext.clearRect(0,0,cacheCanvas.width,cacheCanvas.height);
-			speed=Math.ceil((100-process*100)/15)/100;
+			speed=Math.ceil((100-process*100)/30)/100;
 			process+=speed;
 			if(process<1){
 				for(var i in painterStack){
