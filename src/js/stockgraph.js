@@ -135,24 +135,14 @@
 			 * 计算每个数据的颜色标记：1-涨，0-跌
 			 */
 			handleData=function(){
-				var i,j,b,e;
+				var i,j,temp;
 				amount=end-start;
 				kWidth=width*(1-gapOccupy)/amount;
 				gapWidth=width*gapOccupy/(amount+1);
 				//处理ma头尾补图形引起的作用于变化问题
 				max=data[start][2];
 				min=data[start][3];
-				if(start>0){
-					b=start-1;
-				}else{
-					b=start;
-				}
-				if(end<data.length){
-					e=end+1;
-				}else{
-					e=end;
-				}
-				for(i=b;i<e;i++){
+				for(i=start;i<end;i++){
 					if(max<data[i][2]){
 						max=data[i][2];
 					}
@@ -167,6 +157,33 @@
 					for(j in data.maData){
 						if(min>data.maData[j][i][0]){
 							min=data.maData[j][i][0];
+						}
+					}
+				}
+				//和头尾的均线值比较
+				if(start>0){
+					temp=start-1;
+					for(j in data.maData){
+						if(max<data.maData[j][temp][0]){
+							max=data.maData[j][temp][0];
+						}
+					}
+					for(j in data.maData){
+						if(min>data.maData[j][temp][0]){
+							min=data.maData[j][temp][0];
+						}
+					}
+				}
+				if(end<data.length){
+					temp=end+1;
+					for(j in data.maData){
+						if(max<data.maData[j][temp][0]){
+							max=data.maData[j][temp][0];
+						}
+					}
+					for(j in data.maData){
+						if(min>data.maData[j][temp][0]){
+							min=data.maData[j][temp][0];
 						}
 					}
 				}
@@ -392,25 +409,32 @@
 
 			//计算成交量的最大值
 			handleData=function(){
-				var i,j,b,e;
+				var i,j,temp;
 				max=data[start][5];
-				if(start>0){
-					b=start-1;
-				}else{
-					b=start;
-				}
-				if(end<data.length){
-					e=end+1;
-				}else{
-					e=end;
-				}
-				for(i=b;i<e;i++){
+				for(i=start;i<end;i++){
 					if(max<data[i][5]){
 						max=data[i][5];
 					}
 					for(j in data.maData){
 						if(max<data.maData[j][i][1]){
 							max=data.maData[j][i][1];
+						}
+					}
+				}
+				//比较均线值头尾数据
+				if(start>0){
+					temp=start-1;
+					for(j in data.maData){
+						if(max<data.maData[j][temp][1]){
+							max=data.maData[j][temp][1];
+						}
+					}
+				}
+				if(end<data.length){
+					temp=end+1;
+					for(j in data.maData){
+						if(max<data.maData[j][temp][1]){
+							max=data.maData[j][temp][1];
 						}
 					}
 				}
