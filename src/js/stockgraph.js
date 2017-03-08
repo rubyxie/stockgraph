@@ -13,7 +13,7 @@
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
 			fontSize,showCursor,maColor,gapOccupy;
 		//方法&对象
-		var init,draw,resize,refreshCache,candlePainter,barPainter,
+		var init,draw,resize,refreshCache,candlePainter,barPainter,trendBarPainter,
 			kControl,trendControl,textPainter,trendPainter,initDom,initCanvas,
 			animate,painterTool,eventControl,currControl,triggerControl;
 
@@ -377,7 +377,7 @@
 		})();
 		
 		/*
-		 * 交易量柱状图绘图器，子绘图器操作在缓冲画布中，不影响显示
+		 * K线交易量柱状图绘图器，子绘图器操作在缓冲画布中，不影响显示
 		 */
 		barPainter=(function(){
 			//数据
@@ -574,10 +574,11 @@
 		trendPainter=(function(){
 			//变量
 			var data,layout,width,height,leftX,rightX,topY,bottomY,
-				max,min,amount,range,start,end;
+				middle,max,min,range,amount,range,start,end,
+				marketDetail,trendX,valueMax;
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
-				drawFrame,calcAxis,insideOf;
+				drawFrame,calcAxis,insideOf,drawTrend,drawText;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
@@ -592,9 +593,302 @@
 				bottomY=topY+height;
 			};
 
+			//计算分时图坐标点
+			calcAxis=function(){
+				var i,j,k;
+				for(i=start;i<end;i++){
+					data[i].axis=topY+height*(max-data[i][1])/range;
+				}
+			};
+
 			//处理数据，计算最大值最小值
 			handleData=function(){
+				var i,l;
+				amount=marketDetail.amount;
+				//分时图的成交量图头尾都为半根
+				kWidth=width*(1-gapOccupy)/(amount-1);
+				gapWidth=width*gapOccupy/(amount-1);
+				middle=data.preclosePx;
+				max=min=middle;
+				for(i=0,l=data.length;i<l;i++){
+					if(max<data[i][1]){
+						max=data[i][1];
+					}
+					if(min>data[i][1]){
+						min=data[i][1];
+					}
+				}
+				//记录数据最大值（不一定是y轴最大值），后面设置渐变用
+				valueMax=max;
+				max=Math.max(max-middle,Math.abs(min-middle));
+				max=middle+max;
+				min=middle-(max-middle);
+				range=max-min;
+				calcAxis();
+			};
 
+			//绘制分时图边框
+			drawGrid=function(){
+				var stepY,stepX,i,l,x;
+				cacheContext.beginPath();
+				cacheContext.strokeStyle="#000";
+				cacheContext.lineWidth=1;
+				//绘制实线
+				cacheContext.moveTo(painterTool.getOdd(leftX),painterTool.getOdd(topY));
+				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(topY));
+				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(bottomY));
+				cacheContext.lineTo(painterTool.getOdd(leftX),painterTool.getOdd(bottomY));
+				cacheContext.closePath();
+				cacheContext.stroke();
+				//绘制虚线
+				stepY=height/4;
+				for(i=1;i<4;i++){
+					painterTool.drawDashed(
+						{x:painterTool.getOdd(leftX),y:painterTool.getOdd(topY+i*stepY)},
+						{x:painterTool.getOdd(rightX),y:painterTool.getOdd(topY+i*stepY)}
+					);
+				}
+				//绘制分时时间
+				stepX=width/marketDetail.length;
+				cacheContext.textAlign="center";
+				cacheContext.textBaseline="top";
+				for(i=1,l=marketDetail.length;i<l;i++){
+					x=leftX+i*stepX;
+					painterTool.drawDashed(
+						{x:painterTool.getOdd(x),y:painterTool.getOdd(topY)},
+						{x:painterTool.getOdd(x),y:painterTool.getOdd(bottomY)}
+					);
+					cacheContext.fillText(marketDetail[i-1].close_time+"/"+marketDetail[i].open_time,x,topY);
+				}
+			};
+
+			//绘制坐标轴文字
+			drawText=function(){
+				//绘制y轴数字
+				cacheContext.font=fontSize+"px Arial";
+				cacheContext.textAlign="left";
+				cacheContext.textBaseline="top";
+				cacheContext.fillStyle=kColor[1];
+				cacheContext.fillText(max.toFixed(2),leftX,topY);
+				cacheContext.textBaseline="bottom";
+				cacheContext.fillStyle=kColor[0];
+				cacheContext.fillText(min.toFixed(2),leftX,bottomY);
+				cacheContext.textBaseline="middle";
+				cacheContext.fillStyle="#999";
+				cacheContext.fillText(middle.toFixed(2),leftX,topY+height/2);
+			};
+
+			//绘制分时图折线图&渐变阴影图
+			drawTrend=function(){
+				var i,l,gradient;
+				trendX=leftX;
+				l=start+Math.floor((end-start)*process);
+				//绘制折线图
+				cacheContext.beginPath();
+				cacheContext.strokeStyle="#3b7fed";
+				cacheContext.moveTo(trendX,data[start].axis);
+				for(i=start+1;i<l-1;i++){
+					trendX+=gapWidth+kWidth;
+					cacheContext.lineTo(trendX,data[i].axis);
+				}
+				//为避免最后一个数据超出grid，单独处理
+				trendX+=gapWidth+kWidth;
+				if(trendX>rightX){
+					trendX=rightX;
+				}
+				cacheContext.lineTo(trendX,data[i].axis);
+				cacheContext.stroke();
+				//绘制渐变阴影
+				cacheContext.beginPath();
+				gradient=cacheContext.createLinearGradient(leftX,topY+height*(max-valueMax)/range,leftX,bottomY);
+				gradient.addColorStop(0.45,"#c2deff");
+				gradient.addColorStop(1,"rgba(255,255,255,0)");
+				cacheContext.fillStyle=gradient;
+				cacheContext.moveTo(leftX,bottomY);
+				trendX=leftX;
+				for(i=start;i<l;i++){
+					cacheContext.lineTo(trendX,data[i].axis);
+					trendX+=gapWidth+kWidth;
+				}
+				cacheContext.lineTo(trendX-gapWidth-kWidth,bottomY);
+				cacheContext.closePath();
+				cacheContext.fill();
+				drawText();
+			};
+
+			//绘制分时图帧
+			drawFrame=function(){
+				drawGrid();
+				drawTrend();
+			};
+
+			/*
+			 * 初始化基本配置
+			 * 数据不在initSize方法中被传入，否则触控事件就要多次不必要的调用init方法
+			 */
+			initSize=function(){
+				initValue();
+			};
+
+			/*
+			 * 根据传入的数据初始化配置变量，每次执行drawReady就认为数据有变化
+			 * md为marketDetail数组，包含开盘收盘时间数组和分时图总数
+			 * trendData为分时数据，包含preclosePx昨收价
+			 */
+			drawReady=function(trendData,startPosition,endPosition,md){
+				if(!trendData || trendData.length==0){
+					return ;
+				}
+				data=trendData;
+				start=startPosition;
+				end=endPosition;
+				marketDetail=md;
+				handleData();
+			};
+
+			//onresize重绘
+			resizeDraw=function(){
+				initValue();
+				calcAxis();
+				drawFrame();
+			};
+
+			//判断x,y是否在分时图绘制区域内
+			insideOf=function(x,y){
+				if(x>=leftX && x<=rightX && y>=topY && y<=bottomY){
+					return true;
+				}else{
+					return false;
+				}
+			};
+
+			return {
+				initSize:initSize,
+				drawReady:drawReady,
+				drawFrame:drawFrame,
+				resizeDraw:resizeDraw,
+				insideOf:insideOf
+			};
+		})();
+
+		/*
+		 * 分时图成交量绘图器
+		 */
+		trendBarPainter=(function(){
+			//数据
+			var data,initValue,max,width,height,leftX,rightX,topY,
+				bottomY,barX,layout,start,end;
+			//方法
+			var initSize,drawReady,resizeDraw,drawFrame,handleData,drawGrid,
+				drawBar,calcAxis,insideOf,drawMA;
+			//固定配置
+			layout={a:0.74,b:0.01,c:0.01,d:0.01};
+
+			initValue=function(){
+				width=realCanvas.width*(1-layout.b-layout.d);
+				height=realCanvas.height*(1-layout.a-layout.c);
+				leftX=realCanvas.width*layout.d;
+				rightX=leftX+width;
+				topY=realCanvas.height*layout.a;
+				bottomY=topY+height;
+			};
+
+			//计算交易量柱的高度
+			calcAxis=function(){
+				var i;
+				for(i=start;i<end;i++){
+					data[i].baHeight=data[i][5]/max*height;
+				}
+
+			};
+
+			//计算成交量的最大值
+			handleData=function(){
+				var i;
+				max=data[start][5];
+				for(i=start;i<end;i++){
+					if(max<data[i][5]){
+						max=data[i][5];
+					}
+				}
+				calcAxis();
+			};
+
+			//绘制边框虚线
+			drawGrid=function(){
+				var y;
+				cacheContext.beginPath();
+				cacheContext.strokeStyle="#000";
+				cacheContext.lineWidth=1;
+				//绘制实线
+				cacheContext.moveTo(painterTool.getOdd(leftX),painterTool.getOdd(topY));
+				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(topY));
+				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(bottomY));
+				cacheContext.lineTo(painterTool.getOdd(leftX),painterTool.getOdd(bottomY));
+				cacheContext.closePath();
+				cacheContext.stroke();
+				//绘制虚线
+				y=painterTool.getOdd(topY+height/2);
+				painterTool.drawDashed({x:leftX,y:y},{x:rightX,y:y});
+				//绘制y轴文字
+				cacheContext.fillStyle="#999";
+				cacheContext.font=fontSize+"px Arial";
+				cacheContext.textAlign="left";
+				cacheContext.textBaseline="top";
+				cacheContext.fillText("成交量:"+max,leftX,topY);
+			};
+
+			//绘制成交量柱
+			drawBar=function(x,data){
+				var y;
+				cacheContext.beginPath();
+				cacheContext.fillStyle=kColor[data.color];
+				cacheContext.moveTo(x,bottomY);
+				cacheContext.lineTo(x+kWidth,bottomY);
+				y=bottomY-data.baHeight*process;
+				cacheContext.lineTo(x+kWidth,y);
+				cacheContext.lineTo(x,y);
+				cacheContext.closePath();
+				cacheContext.fill();
+			};
+
+			//绘制成交量ma均线
+			drawMA=function(index){
+				var value,x,l;
+				value=data.maData[index];
+				x=leftX+gapWidth+kWidth/2;
+				l=start+Math.floor((end-start)*process);
+				cacheContext.beginPath();
+				cacheContext.strokeStyle=maColor[index];
+				cacheContext.lineWidth=1;
+				//为ma补足头部图形
+				if(start>0){
+					cacheContext.moveTo(leftX,(value[start].maBaAxis+bottomY-height*value[start-1][1]/max)/2);
+				}
+				for(var i=start;i<l;i++){
+					cacheContext.lineTo(x,value[i].maBaAxis);
+					x+=gapWidth+kWidth;
+				}
+				//为ma补足尾部图形
+				if(i==end){
+					if(value[i]!="-"){
+						cacheContext.lineTo(rightX,(value[i-1].maBaAxis+value[i].maBaAxis)/2);
+					}
+				}
+				cacheContext.stroke();
+			};
+
+			//根据process进度情况，绘制交易量图形帧
+			drawFrame=function(){
+				drawGrid();
+				barX=leftX+gapWidth;
+				for(var i=start;i<end;i++){
+					drawBar(barX,data[i]);
+					barX+=gapWidth+kWidth;
+				}
+				for(i in data.maData){
+					drawMA(i);
+				}
 			};
 
 			/*
@@ -609,11 +903,11 @@
 			 * 根据传入的数据初始化配置变量，每次执行drawReady就认为数据有变化
 			 * 接收二维数组为参数，每一项包含[日期，开盘价，最高价，最低价，收盘价，成交量];
 			 */
-			drawReady=function(trendData,startPosition,endPosition){
-				if(!trendData || trendData.length==0){
+			drawReady=function(barData,startPosition,endPosition){
+				if(!barData || barData.length==0){
 					return ;
 				}
-				data=trendData;
+				data=barData;
 				start=startPosition;
 				end=endPosition;
 				handleData();
@@ -626,7 +920,7 @@
 				drawFrame();
 			};
 
-			//判断x,y是否在分时图绘制区域内
+			//判断x,y是否在绘制区域内
 			insideOf=function(x,y){
 				if(x>=leftX && x<=rightX && y>=topY && y<=bottomY){
 					return true;
@@ -959,6 +1253,7 @@
 			eventControl.init();
 			candlePainter.initSize();
 			barPainter.initSize();
+			trendPainter.initSize();
 		};
 		
 		//开始绘制,接收接口返回的数据
@@ -968,8 +1263,10 @@
 			if(period>9){
 				//分时图
 				painterStack.push(trendPainter);
-				painterStack.push(barPainter);
+				//painterStack.push(trendBarPainter);
 				triggerControl(trendControl);
+				trendPainter.drawReady(rawData,0,rawData.length,marketDetail);
+				animate();
 			}else{
 				//K线图
 				painterStack.push(candlePainter);
@@ -1286,7 +1583,7 @@
 
 		//页面启动逻辑
 		beginPage=function(){
-			requestDispatcher.getKLine("日K","600570.SS");
+			requestDispatcher.getKLine("分时","600570.SS");
 			setTimeout(function(){
 				//requestDispatcher.getKLine("日K","600570.SS");
 			},200);
