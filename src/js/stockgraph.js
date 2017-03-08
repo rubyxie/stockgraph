@@ -11,11 +11,11 @@
 		var container,realCanvas,cacheCanvas,realContext,cacheContext;
 		//配置变量
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
-			fontSize,showCursor,maColor;
+			fontSize,showCursor,maColor,gapOccupy;
 		//方法&对象
 		var init,draw,resize,refreshCache,candlePainter,barPainter,
 			kControl,trendControl,textPainter,trendPainter,initDom,initCanvas,
-			animate,painterTool,bindListener,currControl;
+			animate,painterTool,bindListener,currControl,triggerControl;
 
 		//初始化dom元素，仅需执行一次
 		initDom=function(){
@@ -24,6 +24,7 @@
 			//[跌，涨]
 			kColor=["#32a647","#fa5d5d"];
 			maColor={5:"#f5a623",10:"#2e84e6",20:"#bd10e0"};
+			gapOccupy=0.4;
 			fontSize=24;
 			totalTime=800;
 			speed=16/totalTime;
@@ -91,7 +92,7 @@
 		candlePainter=(function(){
 			//配置变量
 			var data,layout,width,height,leftX,rightX,topY,bottomY,
-				max,min,candleY,candleX,amount,gapOccupy,range,middleX,
+				max,min,candleY,candleX,amount,range,middleX,
 				middleY,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
@@ -99,7 +100,6 @@
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
-			gapOccupy=0.4;
 
 			//设置布局属性，画布长宽会在resize时重新计算
 			initValue=function(){
@@ -221,9 +221,9 @@
 				cacheContext.fillText(min.toFixed(2),leftX,bottomY);
 				//绘制x轴日期
 				cacheContext.textBaseline="top";
-				cacheContext.fillText(data[0][0],leftX,bottomY);
+				cacheContext.fillText(data[start][0],leftX,bottomY);
 				cacheContext.textAlign="right";
-				cacheContext.fillText(data[data.length-1][0],rightX,bottomY);
+				cacheContext.fillText(data[end-1][0],rightX,bottomY);
 			};
 
 			/*
@@ -566,7 +566,83 @@
 		})();
 
 		/*
-		 * 【K线蜡烛图、交易量柱图】事件控制器，左右滑动、缩放事件
+		 * 分时图绘图器
+		 */
+		trendPainter=(function(){
+			//变量
+			var data,layout,width,height,leftX,rightX,topY,bottomY,
+				max,min,amount,range,start,end;
+			//方法
+			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
+				drawFrame,calcAxis,insideOf;
+
+			//为固定配置变量赋值
+			layout={a:0.01,b:0.01,c:0.3,d:0.01};
+
+			//设置布局属性，画布长宽会在resize时重新计算
+			initValue=function(){
+				width=realCanvas.width*(1-layout.b-layout.d);
+				height=realCanvas.height*(1-layout.a-layout.c);
+				leftX=realCanvas.width*layout.d;
+				rightX=leftX+width;
+				topY=realCanvas.height*layout.a;
+				bottomY=topY+height;
+			};
+
+			//处理数据，计算最大值最小值
+			handleData=function(){
+
+			};
+
+			/*
+			 * 初始化基本配置
+			 * 数据不在initSize方法中被传入，否则触控事件就要多次不必要的调用init方法
+			 */
+			initSize=function(){
+				initValue();
+			};
+
+			/*
+			 * 根据传入的数据初始化配置变量，每次执行drawReady就认为数据有变化
+			 * 接收二维数组为参数，每一项包含[日期，开盘价，最高价，最低价，收盘价，成交量];
+			 */
+			drawReady=function(trendData,startPosition,endPosition){
+				if(!trendData || trendData.length==0){
+					return ;
+				}
+				data=trendData;
+				start=startPosition;
+				end=endPosition;
+				handleData();
+			};
+
+			//onresize重绘
+			resizeDraw=function(){
+				initValue();
+				calcAxis();
+				drawFrame();
+			};
+
+			//判断x,y是否在分时图绘制区域内
+			insideOf=function(x,y){
+				if(x>=leftX && x<=rightX && y>=topY && y<=bottomY){
+					return true;
+				}else{
+					return false;
+				}
+			};
+
+			return {
+				initSize:initSize,
+				drawReady:drawReady,
+				drawFrame:drawFrame,
+				resizeDraw:resizeDraw,
+				insideOf:insideOf
+			};
+		})();
+
+		/*
+		 * 【K线蜡烛图、交易量柱图】事件控制器，左右滑动、缩放事件、十字光标
 		 */
 		kControl=(function(){
 			//数据
@@ -712,6 +788,13 @@
 			};
 		})();
 
+		/*
+		 * 【K线分时图、交易量柱图】事件控制器，左右滑动、缩放事件、十字光标
+		 */
+		trendControl=(function(){
+
+		})();
+
 		/*------------------------绘图器end---------------------------*/
 		//动画结束后绑定触控事件
 		bindListener=function(){
@@ -804,6 +887,10 @@
 			});
 		};
 
+		triggerControl=function(control){
+
+		};
+
 		/*
 		 * 动画，执行所有进入方法栈的drawFrame方法
 		 * 如果process为1，则animate退化成无动画绘制
@@ -844,14 +931,15 @@
 		};
 		
 		//开始绘制,接收接口返回的数据
-		draw=function(ajaxData,period){
+		draw=function(ajaxData,period,marketDetail){
 			rawData=ajaxData;
+			painterStack=[];
 			if(period>9){
 				//分时图
-
+				painterStack.push(trendPainter);
+				painterStack.push(barPainter);
 			}else{
 				//K线图
-				painterStack=[];
 				painterStack.push(candlePainter);
 				painterStack.push(barPainter);
 				currControl=kControl;
@@ -881,13 +969,22 @@
 	 * 请求分派器，管理所有的ajax请求，并执行相应操作
 	 */
 	requestDispatcher=(function(){
+		//变量
+		var authorization,storage,supportType,crc,minTime,trendTimer;
+		//方法
+		var queryToken,queryKLine,queryTrend,queryMarketDetail,queryReal,handleToken,
+			handleKLine,handleTrend,handleMarketDetail,handleReal,getKLine,setTimer,
+			storeStorage;
 		/*
-		 * candlePeriod>>openapi参数
-		 * 1：1分钟K线 2：5分钟K线 3：15分钟K线 4：30分钟K线 5：60分钟K线 6：日K线 7：周K线 8：月K线 9：年K线
+		 * storage={
+		 * 	code:
+		 * 	period:
+		 * 	trend:
+		 * 	amount:
+		 * 	preclosePx:
+		 * }
 		 */
-		var authorization,stockCode,candlePeriod,supportType;
-		var queryToken,queryKLine,queryTrend,handleToken,handleKLine,handleTrend,
-			getKLine;
+		storage={};
 		supportType={
 			"1分钟":1,
 			"5分钟":2,
@@ -902,26 +999,64 @@
 			"五日":11
 		};
 
-		//校验code,period是否正确，执行绘图方法
+		//分时图设置定时器，优化美股时差
+		setTimer=function(){
+
+		};
+
+		//校验code,period是否正确，执行蜡烛绘图方法
 		handleKLine=function(code,period,data){
-			if(code!=stockCode){
+			if(code!=storage.code){
 				return ;
 			}
-			if(period!=candlePeriod){
+			if(period!=storage.period){
 				return ;
 			}
 			KPainter.draw(data,period);
 		};
 
+		//检查数据完备与否，执行分时绘图方法，storage在刷新股票时会清空
+		handleTrend=function(){
+			if(storage.marketDetail==undefined || storage.trend==undefined || storage.preclosePx==undefined){
+				return ;
+			}
+			storage.trend.preclosePx=storage.preclosePx;
+			KPainter.draw(storage.trend,storage.period,storage.marketDetail);
+		};
+
+		/*
+		 * 分时图多个数据存储
+		 * real昨收 & marketDetail总量 & trend数据
+		 */
+		storeStorage=function(code,period,attr,data){
+			if(code!=storage.code || period!=storage.period){
+				return ;
+			}
+			storage[attr]=data;
+			handleTrend();
+		};
+
 		//openapi获取token成功
 		handleToken=function(result){
-			authorization=result.token_type+" "+result.access_token;
-			if(candlePeriod!=undefined && stockCode!=undefined){
-				if(candlePeriod>9){
-					//分时图
-				}else{
-					//K线图
-					queryKLine(stockCode,candlePeriod);
+			if(result){
+				authorization=result.token_type+" "+result.access_token;
+			}
+			if(storage.period!=undefined && storage.code!=undefined){
+				switch(storage.period){
+					case 10:
+						//分时图
+						queryMarketDetail(storage.code,storage.period);
+						queryTrend(storage.code,storage.period);
+						queryReal(storage.code,storage.period);
+						setTimer();
+						break;
+					case 11:
+						//五日分时
+						break;
+					default:
+						//K线图
+						queryKLine(storage.code,storage.period);
+						break;
 				}
 			}
 		};
@@ -949,6 +1084,110 @@
 				},
 				error:function(error){
 					console.error("queryKLine:",error);
+				}
+			});
+		};
+
+
+		//获取openapi分时数据
+		queryTrend=function(code,period){
+			Util.ajax({
+				type:"get",
+				url:"https://open.hscloud.cn/quote/v1/trend",
+				contentType:"application/x-www-form-urlencoded; charset=utf-8",
+				data:{
+					prod_code:code,
+					fields:"last_px,business_amount",
+					crc:crc,
+					min_time:minTime
+				},
+				beforeSend: function(request) {
+					request.setRequestHeader("Authorization",authorization);
+				},
+				success:function(result){
+					if(result){
+						//增量查询
+						var data=result.data.trend[code];
+						crc=result.data.trend.crc[code];
+						minTime=data[data.length-1][0].toString().substring(8,12);
+						storeStorage(code,period,"trend",data);
+					}
+				},
+				error:function(){
+					console.error("queryTrend:",error);
+				}
+			});
+		};
+
+		//获取分时图数据总量
+		queryMarketDetail=function(code,period){
+			Util.ajax({
+				type:"get",
+				url:"https://open.hscloud.cn/quote/v1/market/detail",
+				contentType:"application/x-www-form-urlencoded",
+				data:{
+					finance_mic:code.split(".")[1]
+					//finance_mic:"XSGE"
+				},
+				beforeSend:function(request) {
+					request.setRequestHeader("Authorization",authorization);
+				},
+				success:function(result){
+					if(result){
+						var marketDetail,amount,temp,open,close,hour,minute;
+						marketDetail=result.data.trade_section_grp;
+						//openapi返回的时序有问题，冒泡排序
+						for(var i=0,l=marketDetail.length;i<l;i++){
+							for(var j=0,m=l-i-1;j<m;j++){
+								if(marketDetail[j].open_time>marketDetail[j+1].open_time){
+									temp=marketDetail[j];
+									marketDetail[j]=marketDetail[j+1];
+									marketDetail[j+1]=temp;
+								}
+							}
+						}
+						//计算时间差
+						amount=0;
+						for(i=0;i<l;i++){
+							open=marketDetail[i].open_time.toString();
+							close=marketDetail[i].close_time.toString();
+							hour=close.substring(0,close.length-2)-open.substring(0,open.length-2);
+							minute=close.substring(close.length-2,close.length)-open.substring(open.length-2,open.length);
+							amount+=hour*60+minute;
+						}
+						marketDetail.amount=amount;
+						storeStorage(code,period,"marketDetail",marketDetail);
+					}
+				},
+				error:function(error){
+					console.error("queryMarketDetail:",error);
+				}
+			});
+		};
+
+		//获取昨收价
+		queryReal=function(code,period){
+			Util.ajax({
+				type:"get",
+				url:"https://open.hscloud.cn/quote/v1/real",
+				contentType:"application/x-www-form-urlencoded; charset=utf-8",
+				data:{
+					en_prod_code:code,
+					//股票名称，最新价，涨跌幅，昨收价
+					fields:"prod_name,last_px,px_change_rate,preclose_px"
+				},
+				beforeSend: function(request) {
+					request.setRequestHeader("Authorization",authorization);
+				},
+				success:function(result){
+					if(result){
+						var preclosePx;
+						preclosePx=result.data.snapshot[code][5];
+						storeStorage(code,period,"preclosePx",preclosePx);
+					}
+				},
+				error:function(error){
+					console.error("queryReal:",error);
 				}
 			});
 		};
@@ -983,19 +1222,22 @@
 			});
 		};
 
-		//暴露给外部使用的查询方法
-		getKLine=function(code,type){
-			stockCode=code;
-			candlePeriod=supportType[type];
+		/*
+		 * 暴露给外部使用的查询方法。传入K线类别和股票代码为参数
+		 * 1：1分钟 2：5分钟 3：15分钟 4：30分钟 5：60分钟 6：日K 7：周K 8：月K 9：年K
+		 * 10:分时 11：五日
+		 */
+		getKLine=function(period,code){
+			if(code!=undefined){
+				//切换股票时刷新storage，避免分时图残留数据影响
+				storage={};
+				storage.code=code;
+			}
+			storage.period=supportType[period];
 			if(authorization==undefined){
 				queryToken();
 			}else{
-				if(candlePeriod>9){
-					//分时图
-				}else{
-					//K线图
-					queryKLine(stockCode,candlePeriod);
-				}
+				handleToken();
 			}
 		};
 
@@ -1012,7 +1254,10 @@
 
 		//页面启动逻辑
 		beginPage=function(){
-			requestDispatcher.getKLine("600570.SS","日K");
+			requestDispatcher.getKLine("日K","600570.SS");
+			setTimeout(function(){
+				requestDispatcher.getKLine("分时","600570.SS");
+			},200);
 			KPainter.init();
 		};
 
