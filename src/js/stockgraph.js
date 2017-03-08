@@ -8,17 +8,19 @@
 	 */
 	KPainter=(function(){
 		//dom元素
-		var container,realCanvas,cacheCanvas,realContext,cacheContext;
+		var container,realCanvas,cacheCanvas,realContext,cacheContext,pixel;
 		//配置变量
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
 			fontSize,showCursor,maColor,gapOccupy;
 		//方法&对象
 		var init,draw,resize,refreshCache,candlePainter,barPainter,
 			kControl,trendControl,textPainter,trendPainter,initDom,initCanvas,
-			animate,painterTool,bindListener,currControl,triggerControl;
+			animate,painterTool,eventControl,currControl,triggerControl;
 
 		//初始化dom元素，仅需执行一次
 		initDom=function(){
+			//pixel=window.devicePixelRatio;
+			pixel=2;
 			//固定配置项
 			painterStack=[];
 			//[跌，涨]
@@ -37,14 +39,15 @@
 			cacheContext=cacheCanvas.getContext("2d");
 			container.appendChild(realCanvas);
 		};
+		initDom();
 		
 		//初始化画布长宽，在页面resize时需要重新执行
 		initCanvas=function(){
 			//避免移动设备screenPixel模糊问题
-			cacheCanvas.width=container.clientWidth*2;
-			cacheCanvas.height=container.clientHeight*2;
-			realCanvas.width=container.clientWidth*2;
-			realCanvas.height=container.clientHeight*2;
+			cacheCanvas.width=container.clientWidth*pixel;
+			cacheCanvas.height=container.clientHeight*pixel;
+			realCanvas.width=container.clientWidth*pixel;
+			realCanvas.height=container.clientHeight*pixel;
 			realCanvas.style.width=container.clientWidth+"px";
 			realCanvas.style.height=container.clientHeight+"px";
 		};
@@ -645,20 +648,17 @@
 		 * 【K线蜡烛图、交易量柱图】事件控制器，左右滑动、缩放事件、十字光标
 		 */
 		kControl=(function(){
-			//数据
-			var data;
-			//控制参数
+			//变量
 			var totalLength,minScale,maxScale,scaleStep,scrollStep,currScale,
-				currPosition,
-				dayCount;
+				currPosition,dayCount,data;
 			//方法
 			var init,draw,enlarge,narrow,scrollRight,scrollLeft,
 				calcMA,calcColor;
 			//固定变量
 			scaleStep=1;
 			scrollStep=1;
+			//ma指标
 			dayCount=[5,10,20];
-
 
 			/*
 			 * 计算均线值，传入股票数据和均线日期
@@ -796,99 +796,130 @@
 		})();
 
 		/*------------------------绘图器end---------------------------*/
-		//动画结束后绑定触控事件
-		bindListener=function(){
+		/*
+		 * 管理K线图的事件，绑定、解绑、页面刷新时重计算坐标
+		 */
+		eventControl=(function(){
 			//变量
 			var hammerManager,hammerPan,hammerPinch,hammerPress,offsetLeft,offsetTop,
 				x,y;
 			//方法-避免事件未被清理
 			var press,pressup,panup,pandown,panright,panleft,
-				panend,pinchin,pinchout,setup;
-
-			hammerManager=new Hammer.Manager(container);
+				panend,pinchin,pinchout,mousewheel,setup,bindListener,
+				destroy,setOffset;
 			hammerPan=new Hammer.Pan();
 			hammerPinch = new Hammer.Pinch();
 			hammerPress=new Hammer.Press();
+			hammerManager=new Hammer.Manager(container);
 			hammerManager.add([hammerPan,hammerPinch,hammerPress]);
-			offsetLeft=container.offsetLeft;
-			offsetTop=container.offsetTop;
 
 			//长按
-			press=function(){
+			press=function(e){
 			};
 
 			//抬起手指
-			pressup=function(){
+			pressup=function(e){
 			};
 
 			//向上滑
-			panup=function(){
+			panup=function(e){
 			};
 
 			//向下滑
-			pandown=function(){
+			pandown=function(e){
 			};
 
 			//手指右滑
-			panright=function(){
+			panright=function(e){
 				currControl.scrollRight();
 			};
 
 			//手指左滑
-			panleft=function(){
+			panleft=function(e){
 				currControl.scrollLeft();
 			};
 
 			//结束滑动
-			panend=function(){
+			panend=function(e){
 			};
 
 			//缩小
-			pinchin=function(){
+			pinchin=function(e){
 				currControl.narrow();
 			};
 
 			//放大
-			pinchout=function(){
+			pinchout=function(e){
 				currControl.enlarge();
 			};
 
-			//柯里化封装方法
+			mousewheel=function(e){
+				if(e.wheelDelta>0){
+					pinchin(e);
+				}else if(e.wheelDelta<0){
+					pinchout(e);
+				}
+			};
+
+			//AOP封装方法
 			setup=function(callback){
 				return function(e){
-					x=(e.changedPointers[0].pageX-offsetLeft)*2;
-					y=(e.changedPointers[0].pageY-offsetTop)*2;
+					x=(e.changedPointers[0].pageX-offsetLeft)*pixel;
+					y=(e.changedPointers[0].pageY-offsetTop)*pixel;
 					for(var i in painterStack){
 						if(painterStack[i].insideOf(x,y)){
-							callback();
+							callback(e);
 						}
 					}
 				};
 			};
 
-			//绑定所有事件
-			hammerManager.on("press",setup(press));
-			hammerManager.on("pressup",setup(pressup));
-			hammerManager.on("panup",setup(panup));
-			hammerManager.on("pandown",setup(pandown));
-			hammerManager.on("panright",setup(panright));
-			hammerManager.on("panleft",setup(panleft));
-			hammerManager.on("panend",setup(panend));
-			hammerManager.on("pinchin",pinchin);
-			hammerManager.on("pinchout",pinchout);
+			bindListener=function(){
+				//绑定所有事件
+				hammerManager.on("press",setup(press));
+				hammerManager.on("pressup",setup(pressup));
+				hammerManager.on("panup",setup(panup));
+				hammerManager.on("pandown",setup(pandown));
+				hammerManager.on("panright",setup(panright));
+				hammerManager.on("panleft",setup(panleft));
+				hammerManager.on("panend",setup(panend));
+				hammerManager.on("pinchin",pinchin);
+				hammerManager.on("pinchout",pinchout);
 
-			//鼠标滚动缩放事件
-			container.addEventListener("mousewheel", function(event) {
-				if(event.wheelDelta>0){
-					currControl.narrow();
-				}else if(event.wheelDelta<0){
-					currControl.enlarge();
-				}
-			});
-		};
+				//鼠标滚动缩放事件
+				container.addEventListener("mousewheel",mousewheel);
+			};
 
+			//销毁所有已绑定的事件
+			destroy=function(){
+				hammerManager.destroy();
+				hammerManager=new Hammer.Manager(container);
+				hammerManager.add([hammerPan,hammerPinch,hammerPress]);
+			};
+
+			//设置container的偏移量，计算坐标点
+			setOffset=function(){
+				offsetLeft=container.offsetLeft;
+				offsetTop=container.offsetTop;
+			};
+
+			return {
+				init:setOffset,
+				bindListener:bindListener,
+				destroy:destroy,
+				resize:setOffset
+			}
+
+		})();
+
+		/*
+		 * 切换currControl，传入control对象
+		 * 清除上一个control设置的监听事件
+		 */
 		triggerControl=function(control){
-
+			eventControl.destroy();
+			currControl=control;
+			eventControl.bindListener();
 		};
 
 		/*
@@ -924,8 +955,8 @@
 
 		//全局初始化，调用各个内部初始化方法，页面就绪即可执行
 		init=function(){
-			initDom();
 			initCanvas();
+			eventControl.init();
 			candlePainter.initSize();
 			barPainter.initSize();
 		};
@@ -938,14 +969,14 @@
 				//分时图
 				painterStack.push(trendPainter);
 				painterStack.push(barPainter);
+				triggerControl(trendControl);
 			}else{
 				//K线图
 				painterStack.push(candlePainter);
 				painterStack.push(barPainter);
-				currControl=kControl;
+				triggerControl(kControl);
 				currControl.init(rawData);
 			}
-			bindListener();
 		};
 
 		//窗口大小变化时重绘
@@ -955,6 +986,7 @@
 			for(var i in painterStack){
 				painterStack[i].resizeDraw();
 			}
+			eventControl.resize();
 			refreshCache();
 		};
 
@@ -1004,6 +1036,18 @@
 
 		};
 
+		/*
+		 * 分时图多个数据存储
+		 * real昨收 & marketDetail总量 & trend数据
+		 */
+		storeStorage=function(code,period,attr,data){
+			if(code!=storage.code || period!=storage.period){
+				return ;
+			}
+			storage[attr]=data;
+			handleTrend();
+		};
+
 		//校验code,period是否正确，执行蜡烛绘图方法
 		handleKLine=function(code,period,data){
 			if(code!=storage.code){
@@ -1022,18 +1066,6 @@
 			}
 			storage.trend.preclosePx=storage.preclosePx;
 			KPainter.draw(storage.trend,storage.period,storage.marketDetail);
-		};
-
-		/*
-		 * 分时图多个数据存储
-		 * real昨收 & marketDetail总量 & trend数据
-		 */
-		storeStorage=function(code,period,attr,data){
-			if(code!=storage.code || period!=storage.period){
-				return ;
-			}
-			storage[attr]=data;
-			handleTrend();
 		};
 
 		//openapi获取token成功
@@ -1256,7 +1288,7 @@
 		beginPage=function(){
 			requestDispatcher.getKLine("日K","600570.SS");
 			setTimeout(function(){
-				requestDispatcher.getKLine("分时","600570.SS");
+				//requestDispatcher.getKLine("日K","600570.SS");
 			},200);
 			KPainter.init();
 		};
