@@ -659,6 +659,7 @@
 				stepX=width/marketDetail.length;
 				cacheContext.textAlign="center";
 				cacheContext.textBaseline="top";
+				cacheContext.fillStyle="#999";
 				for(i=1,l=marketDetail.length;i<l;i++){
 					x=leftX+i*stepX;
 					painterTool.drawDashed(
@@ -671,25 +672,35 @@
 
 			//绘制坐标轴文字
 			drawText=function(){
+				var middleY;
+				middleY=topY+height/2;
 				//绘制y轴数字
 				cacheContext.font=fontSize+"px Arial";
 				cacheContext.textAlign="left";
 				cacheContext.textBaseline="top";
 				cacheContext.fillStyle=kColor[1];
 				cacheContext.fillText(max.toFixed(2),leftX,topY);
+				cacheContext.textAlign="right";
+				cacheContext.fillText((100*(max-middle)/middle).toFixed(2)+"%",rightX,topY);
+				cacheContext.textAlign="left";
 				cacheContext.textBaseline="bottom";
 				cacheContext.fillStyle=kColor[0];
 				cacheContext.fillText(min.toFixed(2),leftX,bottomY);
+				cacheContext.textAlign="right";
+				cacheContext.fillText((100*(middle-min)/middle).toFixed(2)+"%",rightX,bottomY);
+				cacheContext.textAlign="left";
 				cacheContext.textBaseline="middle";
 				cacheContext.fillStyle="#999";
-				cacheContext.fillText(middle.toFixed(2),leftX,topY+height/2);
+				cacheContext.fillText(middle.toFixed(2),leftX,middleY);
+				cacheContext.textAlign="right";
+				cacheContext.fillText("0.00%",rightX,middleY);
 			};
 
 			//绘制分时图折线图&渐变阴影图
 			drawTrend=function(){
 				var i,l,gradient;
 				//避免出现卡顿动画
-				if(end-start<100){
+				if(end-start<40){
 					process=1;
 				}
 				trendX=leftX;
@@ -764,17 +775,17 @@
 
 			/*
 			 * 根据传入的数据初始化配置变量，每次执行drawReady就认为数据有变化
-			 * md为marketDetail数组，包含开盘收盘时间数组和分时图总数
 			 * trendData为分时数据，包含preclosePx昨收价
+			 * trendData包含marketDetail数组，开盘收盘时间数组和分时图总数
 			 */
-			drawReady=function(trendData,startPosition,endPosition,md){
+			drawReady=function(trendData,startPosition,endPosition){
 				if(!trendData || trendData.length==0){
 					return ;
 				}
 				data=trendData;
 				start=startPosition;
 				end=endPosition;
-				marketDetail=md;
+				marketDetail=data.marketDetail;
 				handleData();
 			};
 
@@ -812,7 +823,7 @@
 				bottomY,barX,layout,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,drawFrame,handleData,drawGrid,
-				drawBar,calcAxis,insideOf,drawMA;
+				drawBar,calcAxis,insideOf;
 			//固定配置
 			layout={a:0.74,b:0.01,c:0.01,d:0.01};
 
@@ -829,18 +840,17 @@
 			calcAxis=function(){
 				var i;
 				for(i=start;i<end;i++){
-					data[i].baHeight=data[i][5]/max*height;
+					data[i].baHeight=data[i][3]/max*height;
 				}
-
 			};
 
 			//计算成交量的最大值
 			handleData=function(){
 				var i;
-				max=data[start][5];
-				for(i=start;i<end;i++){
-					if(max<data[i][5]){
-						max=data[i][5];
+				max=data[start][3];
+				for(i=start+1;i<end;i++){
+					if(max<data[i][3]){
+						max=data[i][3];
 					}
 				}
 				calcAxis();
@@ -884,42 +894,39 @@
 				cacheContext.fill();
 			};
 
-			//绘制成交量ma均线
-			drawMA=function(index){
-				var value,x,l;
-				value=data.maData[index];
-				x=leftX+gapWidth+kWidth/2;
-				l=start+Math.floor((end-start)*process);
-				cacheContext.beginPath();
-				cacheContext.strokeStyle=maColor[index];
-				cacheContext.lineWidth=1;
-				//为ma补足头部图形
-				if(start>0){
-					cacheContext.moveTo(leftX,(value[start].maBaAxis+bottomY-height*value[start-1][1]/max)/2);
-				}
-				for(var i=start;i<l;i++){
-					cacheContext.lineTo(x,value[i].maBaAxis);
-					x+=gapWidth+kWidth;
-				}
-				//为ma补足尾部图形
-				if(i==end){
-					if(value[i]!="-"){
-						cacheContext.lineTo(rightX,(value[i-1].maBaAxis+value[i].maBaAxis)/2);
-					}
-				}
-				cacheContext.stroke();
-			};
-
 			//根据process进度情况，绘制交易量图形帧
 			drawFrame=function(){
+				var width=kWidth/2,y;
 				drawGrid();
-				barX=leftX+gapWidth;
-				for(var i=start;i<end;i++){
+				//绘制头部半个交易量柱
+				cacheContext.beginPath();
+				cacheContext.fillStyle=kColor[data[start].color];
+				cacheContext.moveTo(leftX,bottomY);
+				cacheContext.lineTo(leftX+width,bottomY);
+				y=bottomY-data[start].baHeight*process;
+				cacheContext.lineTo(leftX+width,y);
+				cacheContext.lineTo(leftX,y);
+				cacheContext.closePath();
+				cacheContext.fill();
+				//绘制中间交易量柱
+				barX=leftX+gapWidth+width;
+				for(var i=start+1;i<end-1;i++){
 					drawBar(barX,data[i]);
 					barX+=gapWidth+kWidth;
 				}
-				for(i in data.maData){
-					drawMA(i);
+				//绘制尾部半个交易量柱
+				if(barX+kWidth>rightX){
+					cacheContext.beginPath();
+					cacheContext.fillStyle=kColor[data[i].color];
+					cacheContext.moveTo(rightX,bottomY);
+					cacheContext.lineTo(rightX-width,bottomY);
+					y=bottomY-data[i].baHeight*process;
+					cacheContext.lineTo(rightX-width,y);
+					cacheContext.lineTo(rightX,y);
+					cacheContext.closePath();
+					cacheContext.fill();
+				}else{
+					drawBar(barX,data[i]);
 				}
 			};
 
@@ -933,13 +940,12 @@
 
 			/*
 			 * 根据传入的数据初始化配置变量，每次执行drawReady就认为数据有变化
-			 * 接收二维数组为参数，每一项包含[日期，开盘价，最高价，最低价，收盘价，成交量];
 			 */
-			drawReady=function(barData,startPosition,endPosition){
-				if(!barData || barData.length==0){
+			drawReady=function(trendData,startPosition,endPosition){
+				if(!trendData || trendData.length==0){
 					return ;
 				}
-				data=barData;
+				data=trendData;
 				start=startPosition;
 				end=endPosition;
 				handleData();
@@ -971,7 +977,7 @@
 		})();
 
 		/*
-		 * 【K线蜡烛图、交易量柱图】事件控制器，左右滑动、缩放事件、十字光标
+		 * 【K线蜡烛图、交易量柱图、MACD指标图】事件控制器，左右滑动、缩放事件、十字光标
 		 */
 		kControl=(function(){
 			//变量
@@ -1038,9 +1044,9 @@
 			};
 
 			//初始化比例尺
-			init=function(rawData){
+			init=function(){
 				data=rawData;
-				totalLength=rawData.length;
+				totalLength=data.length;
 				minScale=totalLength>40 ? 40:totalLength;
 				maxScale=totalLength>100 ? 100:totalLength;
 				currScale=totalLength>60 ? 60:totalLength;
@@ -1118,7 +1124,131 @@
 		 * 【K线分时图、交易量柱图】事件控制器，左右滑动、缩放事件、十字光标
 		 */
 		trendControl=(function(){
+			//变量
+			var totalLength,minScale,maxScale,scaleStep,scrollStep,currScale,
+				currPosition,data;
+			//方法
+			var init,draw,enlarge,narrow,scrollRight,scrollLeft,calcColor,
+				calcBusinessAmount;
+			//固定变量
+			scaleStep=1;
+			scrollStep=1;
 
+			//计算交易量值
+			calcBusinessAmount=function(){
+				var i,l;
+				//倒叙相减
+				for(l=data.length,i=l-1;i>0;i--){
+					data[i][3]=data[i][3]-data[i-1][3];
+				}
+			};
+
+			//计算交易量柱的颜色
+			calcColor=function(){
+				var i,l;
+				//第一个柱和昨收比
+				if(data[0][1]<data.preclosePx){
+					data[0].color=0;
+				}else{
+					data[0].color=1;
+				}
+				for(i=1,l=data.length;i<l;i++){
+					if(data[i][1]<data[i-1][1]){
+						data[i].color=0;
+					}else{
+						data[i].color=1;
+					}
+				}
+			};
+
+			//控制器启动绘图
+			draw=function(){
+				var start,end;
+				start=currPosition-currScale;
+				start=start<0 ? 0:start;
+				end=currPosition>data.length ? data.length:currPosition;
+				data.marketDetail.amount=currScale;
+				for(var i in painterStack){
+					painterStack[i].drawReady(data,start,end);
+				}
+				animate();
+			};
+
+			//初始化比例尺
+			init=function(){
+				data=rawData;
+				totalLength=data.marketDetail.amount;
+				minScale=parseInt(totalLength*0.65);
+				maxScale=totalLength;
+				currScale=totalLength;
+				currPosition=data.length;
+				calcBusinessAmount();
+				calcColor();
+				draw();
+			};
+
+			//放大-减少显示条数
+			enlarge=function(){
+				if(currScale>minScale){
+					currScale-=scaleStep;
+					if(currScale<minScale){
+						currScale=minScale;
+					}
+					draw();
+				}else{
+					return ;
+				}
+			};
+
+			//缩小-增加显示条数
+			narrow=function(){
+				if(currScale<maxScale){
+					currScale+=scaleStep;
+					if(currScale>maxScale){
+						currScale=maxScale;
+					}
+					if(currScale>currPosition){
+						currPosition=currScale;
+					}
+					draw();
+				}else{
+					return ;
+				}
+			};
+
+			//手指向右滑动-数据向左滚动
+			scrollRight=function(){
+				if(currPosition>currScale){
+					currPosition-=scrollStep;
+					if(currPosition<currScale){
+						currPosition=currScale;
+					}
+					draw();
+				}else{
+					return ;
+				}
+			};
+
+			//手指向左滑动-数据向右滚动
+			scrollLeft=function(){
+				if(currPosition<totalLength){
+					currPosition+=scrollStep;
+					if(currPosition>totalLength){
+						currPosition=totalLength;
+					}
+					draw();
+				}else{
+					return ;
+				}
+			};
+
+			return {
+				init:init,
+				enlarge:enlarge,
+				narrow:narrow,
+				scrollLeft:scrollLeft,
+				scrollRight:scrollRight
+			};
 		})();
 
 		/*------------------------绘图器end---------------------------*/
@@ -1241,11 +1371,24 @@
 		/*
 		 * 切换currControl，传入control对象
 		 * 清除上一个control设置的监听事件
+		 * 启动绘图方法
 		 */
 		triggerControl=function(control){
+			if(currControl==control){
+				return ;
+			}
+			painterStack=[];
+			if(control==trendControl){
+				painterStack.push(trendPainter);
+				painterStack.push(trendBarPainter);
+			}else if(control==kControl){
+				painterStack.push(candlePainter);
+				painterStack.push(kBarPainter);
+			}
 			eventControl.destroy();
 			currControl=control;
 			eventControl.bindListener();
+			currControl.init();
 		};
 
 		/*
@@ -1286,25 +1429,18 @@
 			candlePainter.initSize();
 			kBarPainter.initSize();
 			trendPainter.initSize();
+			trendBarPainter.initSize();
 		};
 		
 		//开始绘制,接收接口返回的数据
-		draw=function(ajaxData,period,marketDetail){
+		draw=function(ajaxData,period){
 			rawData=ajaxData;
-			painterStack=[];
 			if(period>9){
 				//分时图
-				painterStack.push(trendPainter);
-				//painterStack.push(trendBarPainter);
 				triggerControl(trendControl);
-				trendPainter.drawReady(rawData,0,rawData.length,marketDetail);
-				animate();
 			}else{
 				//K线图
-				painterStack.push(candlePainter);
-				painterStack.push(kBarPainter);
 				triggerControl(kControl);
-				currControl.init(rawData);
 			}
 		};
 
@@ -1394,7 +1530,8 @@
 				return ;
 			}
 			storage.trend.preclosePx=storage.preclosePx;
-			KPainter.draw(storage.trend,storage.period,storage.marketDetail);
+			storage.trend.marketDetail=storage.marketDetail;
+			KPainter.draw(storage.trend,storage.period);
 		};
 
 		//openapi获取token成功
