@@ -13,7 +13,7 @@
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
 			fontSize,showCursor,maColor,gapOccupy;
 		//方法&对象
-		var init,draw,resize,refreshCache,candlePainter,barPainter,trendBarPainter,
+		var init,draw,resize,refreshCache,candlePainter,kBarPainter,trendBarPainter,
 			kControl,trendControl,textPainter,trendPainter,initDom,initCanvas,
 			animate,painterTool,eventControl,currControl,triggerControl;
 
@@ -81,8 +81,14 @@
 				cacheContext.stroke();
 			},
 			//数字为参数，返回奇数
-			getOdd:function(value){
-				return value%2==0 ? value+1:value;
+			getOdd:function(value,add){
+				var result;
+				if(add){
+					result=value%2==0 ? value-1:value;
+				}else{
+					result=value%2==0 ? value-1:value;
+				}
+				return result;
 			}
 		};
 
@@ -106,12 +112,12 @@
 
 			//设置布局属性，画布长宽会在resize时重新计算
 			initValue=function(){
-				width=realCanvas.width*(1-layout.b-layout.d);
-				height=realCanvas.height*(1-layout.a-layout.c);
-				leftX=realCanvas.width*layout.d;
-				rightX=leftX+width;
-				topY=realCanvas.height*layout.a;
-				bottomY=topY+height;
+				leftX=painterTool.getOdd(realCanvas.width*layout.d,false);
+				rightX=painterTool.getOdd(realCanvas.width*(1-layout.b),true);
+				topY=painterTool.getOdd(realCanvas.height*layout.a,false);
+				bottomY=painterTool.getOdd(realCanvas.height*(1-layout.c),true);
+				width=rightX-leftX;
+				height=bottomY-topY;
 			};
 
 			//计算y坐标值
@@ -201,10 +207,10 @@
 				cacheContext.strokeStyle="#000";
 				cacheContext.lineWidth=1;
 				//绘制实线
-				cacheContext.moveTo(painterTool.getOdd(leftX),painterTool.getOdd(topY));
-				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(topY));
-				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(bottomY));
-				cacheContext.lineTo(painterTool.getOdd(leftX),painterTool.getOdd(bottomY));
+				cacheContext.moveTo(leftX,topY);
+				cacheContext.lineTo(rightX,topY);
+				cacheContext.lineTo(rightX,bottomY);
+				cacheContext.lineTo(leftX,bottomY);
 				cacheContext.closePath();
 				cacheContext.stroke();
 				//绘制虚线
@@ -379,7 +385,7 @@
 		/*
 		 * K线交易量柱状图绘图器，子绘图器操作在缓冲画布中，不影响显示
 		 */
-		barPainter=(function(){
+		kBarPainter=(function(){
 			//数据
 			var data,initValue,max,width,height,leftX,rightX,topY,
 				bottomY,barX,layout,start,end;
@@ -390,12 +396,12 @@
 			layout={a:0.74,b:0.01,c:0.01,d:0.01};
 
 			initValue=function(){
-				width=realCanvas.width*(1-layout.b-layout.d);
-				height=realCanvas.height*(1-layout.a-layout.c);
-				leftX=realCanvas.width*layout.d;
-				rightX=leftX+width;
-				topY=realCanvas.height*layout.a;
-				bottomY=topY+height;
+				leftX=painterTool.getOdd(realCanvas.width*layout.d,false);
+				rightX=painterTool.getOdd(realCanvas.width*(1-layout.b),true);
+				topY=painterTool.getOdd(realCanvas.height*layout.a,false);
+				bottomY=painterTool.getOdd(realCanvas.height*(1-layout.c),true);
+				width=rightX-leftX;
+				height=bottomY-topY;
 			};
 
 			//计算交易量柱的高度
@@ -451,10 +457,10 @@
 				cacheContext.strokeStyle="#000";
 				cacheContext.lineWidth=1;
 				//绘制实线
-				cacheContext.moveTo(painterTool.getOdd(leftX),painterTool.getOdd(topY));
-				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(topY));
-				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(bottomY));
-				cacheContext.lineTo(painterTool.getOdd(leftX),painterTool.getOdd(bottomY));
+				cacheContext.moveTo(leftX,topY);
+				cacheContext.lineTo(rightX,topY);
+				cacheContext.lineTo(rightX,bottomY);
+				cacheContext.lineTo(leftX,bottomY);
 				cacheContext.closePath();
 				cacheContext.stroke();
 				//绘制虚线
@@ -585,12 +591,12 @@
 
 			//设置布局属性，画布长宽会在resize时重新计算
 			initValue=function(){
-				width=realCanvas.width*(1-layout.b-layout.d);
-				height=realCanvas.height*(1-layout.a-layout.c);
-				leftX=realCanvas.width*layout.d;
-				rightX=leftX+width;
-				topY=realCanvas.height*layout.a;
-				bottomY=topY+height;
+				leftX=painterTool.getOdd(realCanvas.width*layout.d,false);
+				rightX=painterTool.getOdd(realCanvas.width*(1-layout.b),true);
+				topY=painterTool.getOdd(realCanvas.height*layout.a,false);
+				bottomY=painterTool.getOdd(realCanvas.height*(1-layout.c),true);
+				width=rightX-leftX;
+				height=bottomY-topY;
 			};
 
 			//计算分时图坐标点
@@ -598,6 +604,7 @@
 				var i,j,k;
 				for(i=start;i<end;i++){
 					data[i].axis=topY+height*(max-data[i][1])/range;
+					data[i].avgAxis=topY+height*(max-data[i][2])/range;
 				}
 			};
 
@@ -634,10 +641,10 @@
 				cacheContext.strokeStyle="#000";
 				cacheContext.lineWidth=1;
 				//绘制实线
-				cacheContext.moveTo(painterTool.getOdd(leftX),painterTool.getOdd(topY));
-				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(topY));
-				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(bottomY));
-				cacheContext.lineTo(painterTool.getOdd(leftX),painterTool.getOdd(bottomY));
+				cacheContext.moveTo(leftX,topY);
+				cacheContext.lineTo(rightX,topY);
+				cacheContext.lineTo(rightX,bottomY);
+				cacheContext.lineTo(leftX,bottomY);
 				cacheContext.closePath();
 				cacheContext.stroke();
 				//绘制虚线
@@ -681,9 +688,13 @@
 			//绘制分时图折线图&渐变阴影图
 			drawTrend=function(){
 				var i,l,gradient;
+				//避免出现卡顿动画
+				if(end-start<100){
+					process=1;
+				}
 				trendX=leftX;
 				l=start+Math.floor((end-start)*process);
-				//绘制折线图
+				//---绘制折线图
 				cacheContext.beginPath();
 				cacheContext.strokeStyle="#3b7fed";
 				cacheContext.moveTo(trendX,data[start].axis);
@@ -698,7 +709,7 @@
 				}
 				cacheContext.lineTo(trendX,data[i].axis);
 				cacheContext.stroke();
-				//绘制渐变阴影
+				//---绘制渐变阴影
 				cacheContext.beginPath();
 				gradient=cacheContext.createLinearGradient(leftX,topY+height*(max-valueMax)/range,leftX,bottomY);
 				gradient.addColorStop(0.45,"#c2deff");
@@ -706,20 +717,41 @@
 				cacheContext.fillStyle=gradient;
 				cacheContext.moveTo(leftX,bottomY);
 				trendX=leftX;
-				for(i=start;i<l;i++){
+				for(i=start;i<l-1;i++){
 					cacheContext.lineTo(trendX,data[i].axis);
 					trendX+=gapWidth+kWidth;
 				}
-				cacheContext.lineTo(trendX-gapWidth-kWidth,bottomY);
+				//为避免最后一个数据超出grid，单独处理
+				if(trendX>rightX){
+					trendX=rightX;
+				}
+				cacheContext.lineTo(trendX,data[i].axis);
+				cacheContext.lineTo(trendX,bottomY);
 				cacheContext.closePath();
 				cacheContext.fill();
-				drawText();
+				//---绘制分时图均价线
+				trendX=leftX;
+				cacheContext.beginPath();
+				cacheContext.strokeStyle="#ffc436";
+				cacheContext.moveTo(trendX,data[start].avgAxis);
+				for(i=start+1;i<l-1;i++){
+					trendX+=gapWidth+kWidth;
+					cacheContext.lineTo(trendX,data[i].avgAxis);
+				}
+				//为避免最后一个数据超出grid，单独处理
+				trendX+=gapWidth+kWidth;
+				if(trendX>rightX){
+					trendX=rightX;
+				}
+				cacheContext.lineTo(trendX,data[i].avgAxis);
+				cacheContext.stroke();
 			};
 
 			//绘制分时图帧
 			drawFrame=function(){
 				drawGrid();
 				drawTrend();
+				drawText();
 			};
 
 			/*
@@ -785,12 +817,12 @@
 			layout={a:0.74,b:0.01,c:0.01,d:0.01};
 
 			initValue=function(){
-				width=realCanvas.width*(1-layout.b-layout.d);
-				height=realCanvas.height*(1-layout.a-layout.c);
-				leftX=realCanvas.width*layout.d;
-				rightX=leftX+width;
-				topY=realCanvas.height*layout.a;
-				bottomY=topY+height;
+				leftX=painterTool.getOdd(realCanvas.width*layout.d,false);
+				rightX=painterTool.getOdd(realCanvas.width*(1-layout.b),true);
+				topY=painterTool.getOdd(realCanvas.height*layout.a,false);
+				bottomY=painterTool.getOdd(realCanvas.height*(1-layout.c),true);
+				width=rightX-leftX;
+				height=bottomY-topY;
 			};
 
 			//计算交易量柱的高度
@@ -821,10 +853,10 @@
 				cacheContext.strokeStyle="#000";
 				cacheContext.lineWidth=1;
 				//绘制实线
-				cacheContext.moveTo(painterTool.getOdd(leftX),painterTool.getOdd(topY));
-				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(topY));
-				cacheContext.lineTo(painterTool.getOdd(rightX),painterTool.getOdd(bottomY));
-				cacheContext.lineTo(painterTool.getOdd(leftX),painterTool.getOdd(bottomY));
+				cacheContext.moveTo(leftX,topY);
+				cacheContext.lineTo(rightX,topY);
+				cacheContext.lineTo(rightX,bottomY);
+				cacheContext.lineTo(leftX,bottomY);
 				cacheContext.closePath();
 				cacheContext.stroke();
 				//绘制虚线
@@ -1252,7 +1284,7 @@
 			initCanvas();
 			eventControl.init();
 			candlePainter.initSize();
-			barPainter.initSize();
+			kBarPainter.initSize();
 			trendPainter.initSize();
 		};
 		
@@ -1270,7 +1302,7 @@
 			}else{
 				//K线图
 				painterStack.push(candlePainter);
-				painterStack.push(barPainter);
+				painterStack.push(kBarPainter);
 				triggerControl(kControl);
 				currControl.init(rawData);
 			}
@@ -1426,9 +1458,10 @@
 				contentType:"application/x-www-form-urlencoded; charset=utf-8",
 				data:{
 					prod_code:code,
-					fields:"last_px,business_amount",
+					fields:"last_px,avg_px,business_amount",
 					crc:crc,
 					min_time:minTime
+					//,date:20170308
 				},
 				beforeSend: function(request) {
 					request.setRequestHeader("Authorization",authorization);
@@ -1512,6 +1545,7 @@
 					if(result){
 						var preclosePx;
 						preclosePx=result.data.snapshot[code][5];
+						//preclosePx=46.63;
 						storeStorage(code,period,"preclosePx",preclosePx);
 					}
 				},
