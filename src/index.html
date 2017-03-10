@@ -3,14 +3,34 @@
 	<head>
 		<meta charset="UTF-8">
 		<title>点客·股票看板</title>
+		<link rel="stylesheet" type="text/css" href="css/layout.css" />
 		<link rel="stylesheet" type="text/css" href="css/index.css" />
 	</head>
 	<body>
+		<h1>K线图</h1>
+		<div class="search-wrap">
+			<input placeholder="输入查询的股票代码"/>
+			<button class="search">搜索</button>
+		</div>
+		<div class="button-wrap">
+			<button>分时</button>
+			<button>五日</button>
+			<button>1分钟</button>
+			<button>5分钟</button>
+			<button>15分钟</button>
+			<button>30分钟</button>
+			<button>60分钟</button>
+			<button>日K</button>
+			<button>周K</button>
+			<button>月K</button>
+			<button>年K</button>
+		</div>
 		<div id="k-container"></div>
 
 		<script src="js/util.js"></script>
 		<script src="js/lib/base64.js"></script>
 		<script src="js/lib/hammer.js"></script>
 		<script src="js/stockgraph.js"></script>
+		<script src="js/index.js"></script>
 	</body>
 </html>

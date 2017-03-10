@@ -2,7 +2,7 @@
  * created by bigbird on 2017/2/26
  */
 (function(){
-	var KPainter,requestDispatcher,pageControl,Config;
+	var KPainter,requestDispatcher,pageControl,Config,StockGraph;
 	//避免marketDetail请求过大而设置的本地变量
 	Config={
 		SS:{
@@ -24,11 +24,11 @@
 			realCursorCanvas,cacheCursorCanvas,realCursorContext,cacheCursorContext;
 		//配置变量
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
-			fontSize,showCursor,maColor,gapOccupy,dayCount;
+			fontSize,showCursor,maColor,gapOccupy,dayCount,loading;
 		//方法&对象
 		var init,draw,resize,refreshCache,candlePainter,kBarPainter,trendBarPainter,
 			kControl,trendControl,refreshCursorCache,trendPainter,initDom,initCanvas,
-			animate,painterTool,eventControl,currControl,triggerControl;
+			animate,painterTool,eventControl,currControl,triggerControl,showLoading;
 
 		//初始化dom元素，仅需执行一次
 		initDom=function(){
@@ -243,7 +243,8 @@
 				wordWidth=0;
 				maTips={};
 				for(i in data.maData){
-					word="MA"+i+"："+data.maData[i][index][0].toFixed(2);
+					word=data.maData[i][index][0]=="-" ? "-":(data.maData[i][index][0].toFixed(2));
+					word="MA"+i+"："+word;
 					maTips[i]=word;
 					wordWidth+=cacheContext.measureText(word).width;
 					count++;
@@ -720,6 +721,7 @@
 				}
 				//绘制分时时间
 				stepX=width/marketDetail.length;
+				cacheContext.font=fontSize+"px Arial";
 				cacheContext.textAlign="center";
 				cacheContext.textBaseline="top";
 				cacheContext.fillStyle="#999";
@@ -854,6 +856,7 @@
 				//绘制分时时间
 				stepX=width/amount;
 				l=data.marketDetail.singleDay;
+				cacheContext.font=fontSize+"px Arial";
 				cacheContext.textAlign="left";
 				cacheContext.textBaseline="top";
 				cacheContext.fillStyle="#999";
@@ -940,6 +943,32 @@
 				cacheContext.stroke();
 			};
 
+			//绘制五日分时图y轴坐标
+			draw5Text=function(){
+				var middleY;
+				middleY=topY+height/2;
+				//绘制y轴数字
+				cacheContext.font=fontSize+"px Arial";
+				cacheContext.textAlign="left";
+				cacheContext.textBaseline="top";
+				cacheContext.fillStyle=kColor[1];
+				cacheContext.fillText(max.toFixed(2),leftX,topY);
+				cacheContext.textAlign="right";
+				cacheContext.fillText((100*(max-middle)/middle).toFixed(2)+"%",rightX,topY);
+				cacheContext.textAlign="left";
+				cacheContext.textBaseline="bottom";
+				cacheContext.fillStyle=kColor[0];
+				cacheContext.fillText(min.toFixed(2),leftX,bottomY);
+				cacheContext.textAlign="right";
+				cacheContext.fillText((100*(middle-min)/middle).toFixed(2)+"%",rightX,bottomY);
+				cacheContext.textAlign="left";
+				cacheContext.textBaseline="middle";
+				cacheContext.fillStyle="#999";
+				cacheContext.fillText(middle.toFixed(2),leftX,middleY);
+				cacheContext.textAlign="right";
+				cacheContext.fillText("0.00%",rightX,middleY);
+			};
+
 			//绘制一日分时图帧
 			draw1Frame=function(){
 				draw1Grid();
@@ -951,6 +980,7 @@
 			draw5Frame=function(){
 				draw5Grid();
 				draw5Trend();
+				draw5Text();
 			};
 
 			//模块模式为一个闭包，输出函数不能动态变化
@@ -1332,6 +1362,12 @@
 			//计算交易量值
 			calcBusinessAmount=function(){
 				var i,l;
+				//增量分时图
+				if(data.append){
+					i=data.length-1;
+					data[i][3]=data[i][3]-data.lastBA;
+					return ;
+				}
 				//倒叙相减
 				for(l=data.length,i=l-1;i>0;i--){
 					data[i][3]=data[i][3]-data[i-1][3];
@@ -1341,6 +1377,12 @@
 			//计算交易量柱的颜色
 			calcColor=function(){
 				var i,l;
+				//增量分时图
+				if(data.append){
+					i=data.length-1;
+					data[i].color=data[i][1]<data[i-1][1] ? 0:1;
+					return ;
+				}
 				//第一个柱和昨收比
 				if(data[0][1]<data.preclosePx){
 					data[0].color=0;
@@ -1375,8 +1417,8 @@
 				data=rawData;
 				totalLength=data.marketDetail.amount;
 				minScale=parseInt(totalLength*0.65);
-				maxScale=totalLength+1;
-				currScale=maxScale;
+				maxScale=totalLength;
+				currScale=totalLength;
 				currPosition=data.length;
 				calcBusinessAmount();
 				calcColor();
@@ -1571,6 +1613,7 @@
 		 */
 		triggerControl=function(control){
 			if(currControl==control){
+				currControl.init();
 				return ;
 			}
 			painterStack=[];
@@ -1638,6 +1681,7 @@
 		
 		//开始绘制,接收接口返回的数据
 		draw=function(ajaxData,period){
+			loading=false;
 			rawData=ajaxData;
 			if(period>9){
 				//分时图
@@ -1659,10 +1703,28 @@
 			refreshCache();
 		};
 
+		//查询股票资料时展示loading
+		showLoading=function(){
+			realContext.clearRect(0,0,realCanvas.width,realCanvas.height);
+			loading=true;
+			setTimeout(function(){
+				if(loading){
+					cacheContext.clearRect(0,0,cacheCanvas.width,cacheCanvas.height);
+					cacheContext.font=fontSize*2+"px Arial";
+					cacheContext.textBaseline="bottom";
+					cacheContext.textAlign="center";
+					cacheContext.fillStyle="#999";
+					cacheContext.fillText("Loading...",cacheCanvas.width/2,cacheCanvas.height*0.382);
+					refreshCache();
+				}
+			},100);
+		};
+
 		return {
 			init:init,
 			draw:draw,
-			resize:resize
+			resize:resize,
+			showLoading:showLoading
 		};
 	})();
 
@@ -1675,7 +1737,7 @@
 		//方法
 		var queryToken,queryKLine,queryTrend,queryMarketDetail,queryPreclosePx,handleToken,
 			handleKLine,handleTrend,handleMarketDetail,getKLine,setTimer,storeStorage,
-			queryTrend5Day;
+			queryTrend5Day,appendTrend,handleAppend;
 		/*
 		 * storage={
 		 * 	code:
@@ -1702,7 +1764,21 @@
 
 		//分时图设置定时器，优化美股时差
 		setTimer=function(){
-
+			var i,l,now;
+			clearInterval(trendTimer);
+			trendTimer=setInterval(function(){
+				if(storage.period<10){
+					clearInterval(trendTimer);
+					return ;
+				}
+				now=new Date();
+				now=parseInt(now.getHours()+""+now.getMinutes());
+				for(i=0,l=storage.marketDetail.length;i<l;i++){
+					if(now>=storage.marketDetail[i].open_time && now<=storage.marketDetail[i].open_time){
+						appendTrend();
+					}
+				}
+			},6000);
 		};
 
 		/*
@@ -1715,6 +1791,28 @@
 			}
 			storage[attr]=data;
 			handleTrend();
+		};
+
+		//分时增量查询结果处理
+		handleAppend=function(data){
+			var now;
+			storage.trend.append=true;
+			if(data.length==1){
+				storage.trend.pop();
+				storage.trend.push(data[0]);
+			}else{
+				now=new Date();
+				now=parseInt(now.getHours()+""+now.getMinutes());
+				//开盘清数据
+				if(now==storage.marketDetail[0].open_time){
+					storage.trend=[];
+				}
+				storage.trend.pop();
+				storage.trend.push(data[0]);
+				storage.trend.push(data[1]);
+				storage.trend.lastBA=data[0][3];
+			}
+			KPainter.draw(storage.trend,storage.period);
 		};
 
 		//校验code,period是否正确，执行蜡烛绘图方法
@@ -1735,6 +1833,7 @@
 			}
 			storage.trend.preclosePx=storage.preclosePx;
 			storage.trend.marketDetail=storage.marketDetail;
+			storage.trend.lastBA=storage.trend[storage.trend.length-2][3];
 			KPainter.draw(storage.trend,storage.period);
 		};
 
@@ -1837,6 +1936,34 @@
 				contentType:"application/x-www-form-urlencoded; charset=utf-8",
 				data:{
 					prod_code:code,
+					fields:"last_px,avg_px,business_amount"
+					//,date:20170308
+				},
+				beforeSend: function(request) {
+					request.setRequestHeader("Authorization",authorization);
+				},
+				success:function(result){
+					if(result){
+						var data=result.data.trend[code];
+						crc=result.data.trend.crc[code];
+						minTime=data[data.length-1][0].toString().substring(8,12);
+						storeStorage(code,period,"trend",data);
+					}
+				},
+				error:function(error){
+					console.error("queryTrend:",error);
+				}
+			});
+		};
+
+		//增量查询分时接口
+		appendTrend=function(){
+			Util.ajax({
+				type:"get",
+				url:"https://open.hscloud.cn/quote/v1/trend",
+				contentType:"application/x-www-form-urlencoded; charset=utf-8",
+				data:{
+					prod_code:storage.code,
 					fields:"last_px,avg_px,business_amount",
 					crc:crc,
 					min_time:minTime
@@ -1847,15 +1974,14 @@
 				},
 				success:function(result){
 					if(result){
-						//增量查询
-						var data=result.data.trend[code];
-						crc=result.data.trend.crc[code];
+						var data=result.data.trend[storage.code];
+						crc=result.data.trend.crc[storage.code];
 						minTime=data[data.length-1][0].toString().substring(8,12);
-						storeStorage(code,period,"trend",data);
+						handleAppend(data);
 					}
 				},
-				error:function(){
-					console.error("queryTrend:",error);
+				error:function(error){
+					console.error("appendTrend:",error);
 				}
 			});
 		};
@@ -2010,7 +2136,6 @@
 
 		//页面启动逻辑
 		beginPage=function(){
-			requestDispatcher.getKLine("五日","600570.SS");
 			KPainter.init();
 		};
 
@@ -2019,5 +2144,19 @@
 		};
 	})();
 
+	StockGraph=(function(){
+		var draw;
+
+		draw=function(p,c){
+			KPainter.showLoading();
+			requestDispatcher.getKLine(p,c);
+		};
+
+		return {
+			draw:draw
+		};
+	})();
+
 	Util.ready(pageControl.beginPage);
+	window.StockGraph=StockGraph;
 })();

@@ -1,4 +1,30 @@
-div{
-    width:700px;
-    height:400px;
+body{
+    width:100%;
+    background:#f0f3f7;
+}
+
+h1{
+    padding-top:10px;
+    text-align:center;
+}
+
+input{
+    margin-left:40%;
+    width:20%;
+    height:20px;
+}
+
+button{
+    width:80px;
+    height:25px
+}
+
+.button-wrap{
+    margin:1% 10% 0 15%;
+}
+
+#k-container{
+    width:70%;
+    height:500px;
+    margin:1% 15% 0 15%;
 }
