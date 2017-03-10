@@ -2,7 +2,19 @@
  * created by bigbird on 2017/2/26
  */
 (function(){
-	var KPainter,requestDispatcher,pageControl;
+	var KPainter,requestDispatcher,pageControl,Config;
+	//避免marketDetail请求过大而设置的本地变量
+	Config={
+		SS:{
+			trade_section_grp:[{open_time:930,close_time:1130},{open_time:1300,close_time:1500}]
+		},
+		SZ:{
+			trade_section_grp:[{open_time:930,close_time:1130},{open_time:1300,close_time:1500}]
+		},
+		HKM:{
+			trade_section_grp:[{open_time:930,close_time:1200},{open_time:1300,close_time:1600}]
+		}
+	};
 	/*
 	 * K线绘图器。本身作为总控制器，内部有多个绘图器
 	 */
@@ -631,10 +643,11 @@
 			//变量
 			var data,layout,width,height,leftX,rightX,topY,bottomY,
 				middle,max,min,range,amount,range,start,end,
-				marketDetail,trendX,valueMax;
+				marketDetail,trendX,valueMax,period;
 			//方法
-			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
-				drawFrame,calcAxis,insideOf,drawTrend,drawText;
+			var initSize,drawReady,resizeDraw,initValue,draw1Grid,handleData,
+				draw1Frame,calcAxis,insideOf,draw1Trend,draw1Text,draw5Frame,
+				draw5Grid,draw5Trend,draw5Text,drawFrame;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
@@ -685,7 +698,7 @@
 			};
 
 			//绘制分时图边框
-			drawGrid=function(){
+			draw1Grid=function(){
 				var stepY,stepX,i,l,x;
 				cacheContext.beginPath();
 				cacheContext.strokeStyle="#000";
@@ -721,7 +734,7 @@
 			};
 
 			//绘制坐标轴文字
-			drawText=function(){
+			draw1Text=function(){
 				var middleY;
 				middleY=topY+height/2;
 				//绘制y轴数字
@@ -747,7 +760,7 @@
 			};
 
 			//绘制分时图折线图&渐变阴影图
-			drawTrend=function(){
+			draw1Trend=function(){
 				var i,l,gradient;
 				//避免出现卡顿动画
 				if(end-start<40){
@@ -808,11 +821,145 @@
 				cacheContext.stroke();
 			};
 
-			//绘制分时图帧
+			//绘制五日分时网格
+			draw5Grid=function(){
+				var stepY,stepX,i,x,amount,l,date;
+				cacheContext.beginPath();
+				cacheContext.strokeStyle="#000";
+				cacheContext.lineWidth=1;
+				//绘制实线
+				cacheContext.moveTo(leftX,topY);
+				cacheContext.lineTo(rightX,topY);
+				cacheContext.lineTo(rightX,bottomY);
+				cacheContext.lineTo(leftX,bottomY);
+				cacheContext.closePath();
+				cacheContext.stroke();
+				//绘制虚线
+				amount=4;
+				stepY=height/amount;
+				for(i=1;i<amount;i++){
+					painterTool.drawDashed(
+						{x:painterTool.getOdd(leftX),y:painterTool.getOdd(topY+i*stepY)},
+						{x:painterTool.getOdd(rightX),y:painterTool.getOdd(topY+i*stepY)}
+					);
+				}
+				amount=5;
+				stepX=width/amount;
+				for(i=1;i<amount;i++){
+					painterTool.drawDashed(
+						{x:painterTool.getOdd(leftX+i*stepX),y:painterTool.getOdd(topY)},
+						{x:painterTool.getOdd(leftX+i*stepX),y:painterTool.getOdd(bottomY)}
+					);
+				}
+				//绘制分时时间
+				stepX=width/amount;
+				l=data.marketDetail.singleDay;
+				cacheContext.textAlign="left";
+				cacheContext.textBaseline="top";
+				cacheContext.fillStyle="#999";
+				for(i=0;i<amount;i++){
+					x=leftX+i*stepX;
+					date=data[i*l][0]+"";
+					date=date.substring(4,6)+"-"+date.substring(6,8);
+					cacheContext.fillText(date,x,bottomY);
+				}
+			};
+
+			//绘制五日分时图折线图&渐变阴影图&均价
+			draw5Trend=function(){
+				var i,l,gradient,amount;
+				//避免出现卡顿动画
+				if(end-start<40){
+					process=1;
+				}
+				trendX=leftX;
+				l=start+Math.floor((end-start)*process);
+				amount=marketDetail.singleDay;
+				//---绘制折线图
+				cacheContext.beginPath();
+				cacheContext.strokeStyle="#3b7fed";
+				cacheContext.moveTo(trendX,data[start].axis);
+				for(i=start+1;i<l-1;i++){
+					trendX+=gapWidth+kWidth;
+					if(i%amount==0){
+						cacheContext.stroke();
+						cacheContext.beginPath();
+						cacheContext.moveTo(trendX,data[i].axis);
+						continue;
+					}
+					cacheContext.lineTo(trendX,data[i].axis);
+				}
+				//为避免最后一个数据超出grid，单独处理
+				trendX+=gapWidth+kWidth;
+				if(trendX>rightX){
+					trendX=rightX;
+				}
+				cacheContext.lineTo(trendX,data[i].axis);
+				cacheContext.stroke();
+				//---绘制渐变阴影
+				cacheContext.beginPath();
+				gradient=cacheContext.createLinearGradient(leftX,topY+height*(max-valueMax)/range,leftX,bottomY);
+				gradient.addColorStop(0.45,"#c2deff");
+				gradient.addColorStop(1,"rgba(255,255,255,0)");
+				cacheContext.fillStyle=gradient;
+				cacheContext.moveTo(leftX,bottomY);
+				trendX=leftX;
+				for(i=start;i<l-1;i++){
+					cacheContext.lineTo(trendX,data[i].axis);
+					trendX+=gapWidth+kWidth;
+				}
+				//为避免最后一个数据超出grid，单独处理
+				if(trendX>rightX){
+					trendX=rightX;
+				}
+				cacheContext.lineTo(trendX,data[i].axis);
+				cacheContext.lineTo(trendX,bottomY);
+				cacheContext.closePath();
+				cacheContext.fill();
+				//---绘制分时图均价线
+				trendX=leftX;
+				cacheContext.beginPath();
+				cacheContext.strokeStyle="#ffc436";
+				cacheContext.moveTo(trendX,data[start].avgAxis);
+				for(i=start+1;i<l-1;i++){
+					trendX+=gapWidth+kWidth;
+					if(i%amount==0){
+						cacheContext.stroke();
+						cacheContext.beginPath();
+						cacheContext.moveTo(trendX,data[i].axis);
+						continue;
+					}
+					cacheContext.lineTo(trendX,data[i].avgAxis);
+				}
+				//为避免最后一个数据超出grid，单独处理
+				trendX+=gapWidth+kWidth;
+				if(trendX>rightX){
+					trendX=rightX;
+				}
+				cacheContext.lineTo(trendX,data[i].avgAxis);
+				cacheContext.stroke();
+			};
+
+			//绘制一日分时图帧
+			draw1Frame=function(){
+				draw1Grid();
+				draw1Trend();
+				draw1Text();
+			};
+
+			//绘制五日分时图帧
+			draw5Frame=function(){
+				draw5Grid();
+				draw5Trend();
+			};
+
+			//模块模式为一个闭包，输出函数不能动态变化
 			drawFrame=function(){
-				drawGrid();
-				drawTrend();
-				drawText();
+				if(marketDetail.dayAmount==1){
+					draw1Frame();
+				}else if(marketDetail.dayAmount==5){
+					draw5Frame();
+				}
 			};
 
 			/*
@@ -1215,6 +1362,7 @@
 				start=currPosition-currScale;
 				start=start<0 ? 0:start;
 				end=currPosition>data.length ? data.length:currPosition;
+				//放大缩小时
 				data.marketDetail.amount=currScale;
 				for(var i in painterStack){
 					painterStack[i].drawReady(data,start,end);
@@ -1615,8 +1763,11 @@
 			}
 			if(period==10){
 				marketDetail.amount=amount;
+				marketDetail.dayAmount=1;
 			}else if(period==11){
 				marketDetail.amount=amount*5;
+				marketDetail.dayAmount=5;
+				marketDetail.singleDay=amount;
 			}
 			storeStorage(code,period,"marketDetail",marketDetail);
 		};
@@ -1737,12 +1888,19 @@
 
 		//获取分时图数据总量
 		queryMarketDetail=function(code,period){
+			var postfix=code.split(".")[1];
+			//避免请求超时
+			if(Config[postfix]){
+				handleMarketDetail(code,period,Config[postfix]);
+				return ;
+			}
+			//请求marketDetail
 			Util.ajax({
 				type:"get",
 				url:"https://open.hscloud.cn/quote/v1/market/detail",
 				contentType:"application/x-www-form-urlencoded",
 				data:{
-					finance_mic:code.split(".")[1]
+					finance_mic:postfix
 					//finance_mic:"XSGE"
 				},
 				beforeSend:function(request) {
@@ -1853,9 +2011,6 @@
 		//页面启动逻辑
 		beginPage=function(){
 			requestDispatcher.getKLine("五日","600570.SS");
-			setTimeout(function(){
-				//requestDispatcher.getKLine("日K","600570.SS");
-			},200);
 			KPainter.init();
 		};
 
