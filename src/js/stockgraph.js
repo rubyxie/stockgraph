@@ -8,13 +8,14 @@
 	 */
 	KPainter=(function(){
 		//dom元素
-		var container,realCanvas,cacheCanvas,realContext,cacheContext,pixel;
+		var container,realCanvas,cacheCanvas,realContext,cacheContext,pixel,
+			realCursorCanvas,cacheCursorCanvas,realCursorContext,cacheCursorContext;
 		//配置变量
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
-			fontSize,showCursor,maColor,gapOccupy;
+			fontSize,showCursor,maColor,gapOccupy,dayCount;
 		//方法&对象
 		var init,draw,resize,refreshCache,candlePainter,kBarPainter,trendBarPainter,
-			kControl,trendControl,textPainter,trendPainter,initDom,initCanvas,
+			kControl,trendControl,refreshCursorCache,trendPainter,initDom,initCanvas,
 			animate,painterTool,eventControl,currControl,triggerControl;
 
 		//初始化dom元素，仅需执行一次
@@ -25,11 +26,19 @@
 			painterStack=[];
 			//[跌，涨]
 			kColor=["#32a647","#fa5d5d"];
+			//MA图线颜色
 			maColor={5:"#f5a623",10:"#2e84e6",20:"#bd10e0"};
+			//ma指标
+			dayCount=[5,10,20];
+			//柱图间隙占比
 			gapOccupy=0.4;
+			//文字大小
 			fontSize=24;
+			//线性动画下动画总时长
 			totalTime=800;
+			//线性动画下递增速度（渐变动画时无效）
 			speed=16/totalTime;
+			//递增标志
 			process=speed;
 			//dom
 			container=document.getElementById("k-container");
@@ -38,6 +47,13 @@
 			realContext=realCanvas.getContext("2d");
 			cacheContext=cacheCanvas.getContext("2d");
 			container.appendChild(realCanvas);
+			//十字光标画布
+			realCursorCanvas=container.realCursorCanvas || document.createElement("canvas");
+			cacheCursorCanvas=container.cacheCursorCanvas || document.createElement("canvas");
+			realCursorContext=realCursorCanvas.getContext("2d");
+			cacheCursorContext=cacheCursorCanvas.getContext("2d");
+			realCursorCanvas.style.position="absolute";
+			container.appendChild(realCursorCanvas);
 		};
 		initDom();
 		
@@ -50,6 +66,13 @@
 			realCanvas.height=container.clientHeight*pixel;
 			realCanvas.style.width=container.clientWidth+"px";
 			realCanvas.style.height=container.clientHeight+"px";
+			//十字光标画布
+			cacheCursorCanvas.width=container.clientWidth*pixel;
+			cacheCursorCanvas.height=container.clientHeight*pixel;
+			realCursorCanvas.width=container.clientWidth*pixel;
+			realCursorCanvas.height=container.clientHeight*pixel;
+			realCursorCanvas.style.width=container.clientWidth+"px";
+			realCursorCanvas.style.height=container.clientHeight+"px";
 		};
 
 		/*------------------------工具方法---------------------------*/
@@ -105,7 +128,8 @@
 				middleY,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
-				drawFrame,drawUpCandle,drawDownCandle,calcAxis,insideOf,drawMA;
+				drawFrame,drawUpCandle,drawDownCandle,calcAxis,insideOf,drawMA,
+				drawMAText;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
@@ -199,6 +223,31 @@
 				range=max-min;
 				calcAxis();
 			};
+
+			//绘制蜡烛图ma文字
+			drawMAText=function(index){
+				var maTips,i,wordWidth,word,gapWidth,wordX,count;
+				count=0;
+				wordWidth=0;
+				maTips={};
+				for(i in data.maData){
+					word="MA"+i+"："+data.maData[i][index][0].toFixed(2);
+					maTips[i]=word;
+					wordWidth+=cacheContext.measureText(word).width;
+					count++;
+				}
+				gapWidth=(width-wordWidth)/(count+1);
+				cacheContext.font=fontSize+"px Arial";
+				cacheContext.textBaseline="top";
+				cacheContext.textAlign="left";
+				wordX=leftX+gapWidth;
+				wordWidth/=count;
+				for(i in data.maData){
+					cacheContext.fillStyle=maColor[i];
+					cacheContext.fillText(maTips[i],wordX,topY);
+					wordX+=wordWidth+gapWidth;
+				}
+			};
 			
 			//绘制坐标轴网格
 			drawGrid=function(){
@@ -233,6 +282,7 @@
 				cacheContext.fillText(data[start][0],leftX,bottomY);
 				cacheContext.textAlign="right";
 				cacheContext.fillText(data[end-1][0],rightX,bottomY);
+				drawMAText(end-1);
 			};
 
 			/*
@@ -982,15 +1032,13 @@
 		kControl=(function(){
 			//变量
 			var totalLength,minScale,maxScale,scaleStep,scrollStep,currScale,
-				currPosition,dayCount,data;
+				currPosition,data;
 			//方法
 			var init,draw,enlarge,narrow,scrollRight,scrollLeft,
 				calcMA,calcColor;
 			//固定变量
 			scaleStep=1;
 			scrollStep=1;
-			//ma指标
-			dayCount=[5,10,20];
 
 			/*
 			 * 计算均线值，传入股票数据和均线日期
@@ -1179,8 +1227,8 @@
 				data=rawData;
 				totalLength=data.marketDetail.amount;
 				minScale=parseInt(totalLength*0.65);
-				maxScale=totalLength;
-				currScale=totalLength;
+				maxScale=totalLength+1;
+				currScale=maxScale;
 				currPosition=data.length;
 				calcBusinessAmount();
 				calcColor();
@@ -1422,6 +1470,14 @@
 			container.appendChild(realCanvas);
 		};
 
+		//十字光标的画布缓冲绘图
+		refreshCursorCache=function(){
+			container.removeChild(realCursorCanvas);
+			realCursorContext.clearRect(0,0,realCursorCanvas.width,realCursorCanvas.height);
+			realCursorContext.drawImage(cacheCursorCanvas,0,0);
+			container.appendChild(realCursorCanvas);
+		};
+
 		//全局初始化，调用各个内部初始化方法，页面就绪即可执行
 		init=function(){
 			initCanvas();
@@ -1469,9 +1525,9 @@
 		//变量
 		var authorization,storage,supportType,crc,minTime,trendTimer;
 		//方法
-		var queryToken,queryKLine,queryTrend,queryMarketDetail,queryReal,handleToken,
-			handleKLine,handleTrend,handleMarketDetail,handleReal,getKLine,setTimer,
-			storeStorage;
+		var queryToken,queryKLine,queryTrend,queryMarketDetail,queryPreclosePx,handleToken,
+			handleKLine,handleTrend,handleMarketDetail,getKLine,setTimer,storeStorage,
+			queryTrend5Day;
 		/*
 		 * storage={
 		 * 	code:
@@ -1534,6 +1590,37 @@
 			KPainter.draw(storage.trend,storage.period);
 		};
 
+		//检查数据完备与否，计算分时总量，时间分布。storage在刷新股票时会清空
+		handleMarketDetail=function(code,period,data){
+			var marketDetail,amount,temp,open,close,hour,minute;
+			marketDetail=data.trade_section_grp;
+			//openapi返回的时序有问题，冒泡排序
+			for(var i=0,l=marketDetail.length;i<l;i++){
+				for(var j=0,m=l-i-1;j<m;j++){
+					if(marketDetail[j].open_time>marketDetail[j+1].open_time){
+						temp=marketDetail[j];
+						marketDetail[j]=marketDetail[j+1];
+						marketDetail[j+1]=temp;
+					}
+				}
+			}
+			//计算时间差
+			amount=0;
+			for(i=0;i<l;i++){
+				open=marketDetail[i].open_time.toString();
+				close=marketDetail[i].close_time.toString();
+				hour=close.substring(0,close.length-2)-open.substring(0,open.length-2);
+				minute=close.substring(close.length-2,close.length)-open.substring(open.length-2,open.length);
+				amount+=hour*60+minute;
+			}
+			if(period==10){
+				marketDetail.amount=amount;
+			}else if(period==11){
+				marketDetail.amount=amount*5;
+			}
+			storeStorage(code,period,"marketDetail",marketDetail);
+		};
+
 		//openapi获取token成功
 		handleToken=function(result){
 			if(result){
@@ -1545,11 +1632,15 @@
 						//分时图
 						queryMarketDetail(storage.code,storage.period);
 						queryTrend(storage.code,storage.period);
-						queryReal(storage.code,storage.period);
+						queryPreclosePx(storage.code,storage.period);
 						setTimer();
 						break;
 					case 11:
 						//五日分时
+						queryMarketDetail(storage.code,storage.period);
+						queryTrend5Day(storage.code,storage.period);
+						queryPreclosePx(storage.code,storage.period);
+						setTimer();
 						break;
 					default:
 						//K线图
@@ -1618,6 +1709,32 @@
 			});
 		};
 
+		//获取openapi五日分时数据
+		queryTrend5Day=function(code,period){
+			Util.ajax({
+				type:"get",
+				url:"https://open.hscloud.cn/quote/v1/trend5day",
+				contentType:"application/x-www-form-urlencoded; charset=utf-8",
+				data:{
+					prod_code:code,
+					fields:"last_px,avg_px,business_amount"
+				},
+				beforeSend: function(request) {
+					request.setRequestHeader("Authorization",authorization);
+				},
+				success:function(result){
+					if(result){
+						//增量查询
+						var data=result.data.trend[code];
+						storeStorage(code,period,"trend",data);
+					}
+				},
+				error:function(){
+					console.error("queryTrend:",error);
+				}
+			});
+		};
+
 		//获取分时图数据总量
 		queryMarketDetail=function(code,period){
 			Util.ajax({
@@ -1633,29 +1750,7 @@
 				},
 				success:function(result){
 					if(result){
-						var marketDetail,amount,temp,open,close,hour,minute;
-						marketDetail=result.data.trade_section_grp;
-						//openapi返回的时序有问题，冒泡排序
-						for(var i=0,l=marketDetail.length;i<l;i++){
-							for(var j=0,m=l-i-1;j<m;j++){
-								if(marketDetail[j].open_time>marketDetail[j+1].open_time){
-									temp=marketDetail[j];
-									marketDetail[j]=marketDetail[j+1];
-									marketDetail[j+1]=temp;
-								}
-							}
-						}
-						//计算时间差
-						amount=0;
-						for(i=0;i<l;i++){
-							open=marketDetail[i].open_time.toString();
-							close=marketDetail[i].close_time.toString();
-							hour=close.substring(0,close.length-2)-open.substring(0,open.length-2);
-							minute=close.substring(close.length-2,close.length)-open.substring(open.length-2,open.length);
-							amount+=hour*60+minute;
-						}
-						marketDetail.amount=amount;
-						storeStorage(code,period,"marketDetail",marketDetail);
+						handleMarketDetail(code,period,result.data);
 					}
 				},
 				error:function(error){
@@ -1665,29 +1760,32 @@
 		};
 
 		//获取昨收价
-		queryReal=function(code,period){
+		queryPreclosePx=function(code,period){
+			var dataAcount;
+			dataAcount=period==10 ? 2:6;
 			Util.ajax({
 				type:"get",
-				url:"https://open.hscloud.cn/quote/v1/real",
+				url:"https://open.hscloud.cn/quote/v1/kline",
 				contentType:"application/x-www-form-urlencoded; charset=utf-8",
 				data:{
-					en_prod_code:code,
-					//股票名称，最新价，涨跌幅，昨收价
-					fields:"prod_name,last_px,px_change_rate,preclose_px"
+					get_type:"offset",
+					prod_code:code,
+					candle_period:6,
+					fields:"close_px",
+					data_count:dataAcount
 				},
 				beforeSend: function(request) {
 					request.setRequestHeader("Authorization",authorization);
 				},
 				success:function(result){
 					if(result){
-						var preclosePx;
-						preclosePx=result.data.snapshot[code][5];
-						//preclosePx=46.63;
-						storeStorage(code,period,"preclosePx",preclosePx);
+						if(code==storage.code){
+							storeStorage(code,period,"preclosePx",result.data.candle[code][0][1]);
+						}
 					}
 				},
 				error:function(error){
-					console.error("queryReal:",error);
+					console.error("queryPreclosePx:",error);
 				}
 			});
 		};
@@ -1754,7 +1852,7 @@
 
 		//页面启动逻辑
 		beginPage=function(){
-			requestDispatcher.getKLine("分时","600570.SS");
+			requestDispatcher.getKLine("五日","600570.SS");
 			setTimeout(function(){
 				//requestDispatcher.getKLine("日K","600570.SS");
 			},200);
