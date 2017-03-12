@@ -677,11 +677,12 @@
 				var i,l;
 				amount=marketDetail.amount;
 				//分时图的成交量图头尾都为半根
-				kWidth=width*(1-gapOccupy)/(amount-1);
-				gapWidth=width*gapOccupy/(amount-1);
+				kWidth=width*(1-gapOccupy)/amount;
+				gapWidth=width*gapOccupy/amount;
 				middle=data.preclosePx;
 				max=min=middle;
-				for(i=0,l=data.length;i<l;i++){
+				//for(i=0,l=data.length;i<l;i++){
+				for(i=start;i<end;i++){
 					if(max<data[i][1]){
 						max=data[i][1];
 					}
@@ -700,7 +701,7 @@
 
 			//绘制分时图边框
 			draw1Grid=function(){
-				var stepY,stepX,i,l,x;
+				var stepY,avg,i,l,x,position,date;
 				cacheContext.beginPath();
 				cacheContext.strokeStyle="#000";
 				cacheContext.lineWidth=1;
@@ -720,19 +721,31 @@
 					);
 				}
 				//绘制分时时间
-				stepX=width/marketDetail.length;
+				avg=marketDetail.singleDay/marketDetail.length;
 				cacheContext.font=fontSize+"px Arial";
 				cacheContext.textAlign="center";
 				cacheContext.textBaseline="top";
 				cacheContext.fillStyle="#999";
 				for(i=1,l=marketDetail.length;i<l;i++){
-					x=leftX+i*stepX;
-					painterTool.drawDashed(
-						{x:painterTool.getOdd(x),y:painterTool.getOdd(topY)},
-						{x:painterTool.getOdd(x),y:painterTool.getOdd(bottomY)}
-					);
-					cacheContext.fillText(marketDetail[i-1].close_time+"/"+marketDetail[i].open_time,x,topY);
+					position=i*avg;
+					if(position>=start && position<end){
+						x=leftX+(position-start)*(gapWidth+kWidth);
+						painterTool.drawDashed(
+							{x:painterTool.getOdd(x),y:painterTool.getOdd(topY)},
+							{x:painterTool.getOdd(x),y:painterTool.getOdd(bottomY)}
+						);
+						cacheContext.fillText(marketDetail[i-1].close_time+"/"+marketDetail[i].open_time,x,topY);
+					}
 				}
+				//绘制头尾x轴时间
+				cacheContext.textAlign="left";
+				date=data[start][0]+"";
+				date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
+				cacheContext.fillText(date,leftX,bottomY);
+				cacheContext.textAlign="right";
+				date=data[end-1][0]+"";
+				date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
+				cacheContext.fillText(date,rightX,bottomY);
 			};
 
 			//绘制坐标轴文字
@@ -825,7 +838,7 @@
 
 			//绘制五日分时网格
 			draw5Grid=function(){
-				var stepY,stepX,i,x,amount,l,date;
+				var stepY,i,x,amount,l,date,position;
 				cacheContext.beginPath();
 				cacheContext.strokeStyle="#000";
 				cacheContext.lineWidth=1;
@@ -845,26 +858,30 @@
 						{x:painterTool.getOdd(rightX),y:painterTool.getOdd(topY+i*stepY)}
 					);
 				}
-				amount=5;
-				stepX=width/amount;
-				for(i=1;i<amount;i++){
-					painterTool.drawDashed(
-						{x:painterTool.getOdd(leftX+i*stepX),y:painterTool.getOdd(topY)},
-						{x:painterTool.getOdd(leftX+i*stepX),y:painterTool.getOdd(bottomY)}
-					);
-				}
 				//绘制分时时间
-				stepX=width/amount;
+				amount=5;
 				l=data.marketDetail.singleDay;
 				cacheContext.font=fontSize+"px Arial";
 				cacheContext.textAlign="left";
 				cacheContext.textBaseline="top";
 				cacheContext.fillStyle="#999";
-				for(i=0;i<amount;i++){
-					x=leftX+i*stepX;
-					date=data[i*l][0]+"";
+				if(start==0){
+					date=data[0][0]+"";
 					date=date.substring(4,6)+"-"+date.substring(6,8);
-					cacheContext.fillText(date,x,bottomY);
+					cacheContext.fillText(date,leftX,bottomY);
+				}
+				for(i=1;i<amount;i++){
+					position=i*l;
+					if(position>=start && position<end){
+						x=leftX+(position-start)*(gapWidth+kWidth);
+						date=data[position][0]+"";
+						date=date.substring(4,6)+"-"+date.substring(6,8);
+						cacheContext.fillText(date,x,bottomY);
+						painterTool.drawDashed(
+							{x:painterTool.getOdd(x),y:painterTool.getOdd(topY)},
+							{x:painterTool.getOdd(x),y:painterTool.getOdd(bottomY)}
+						);
+					}
 				}
 			};
 
@@ -1356,8 +1373,8 @@
 			var init,draw,enlarge,narrow,scrollRight,scrollLeft,calcColor,
 				calcBusinessAmount;
 			//固定变量
-			scaleStep=1;
-			scrollStep=1;
+			scaleStep=5;
+			scrollStep=2;
 
 			//计算交易量值
 			calcBusinessAmount=function(){
@@ -1403,7 +1420,7 @@
 				var start,end;
 				start=currPosition-currScale;
 				start=start<0 ? 0:start;
-				end=currPosition>data.length ? data.length:currPosition;
+				end=currPosition<data.length ? currPosition+1:data.length;
 				//放大缩小时
 				data.marketDetail.amount=currScale;
 				for(var i in painterStack){
@@ -1419,7 +1436,7 @@
 				minScale=parseInt(totalLength*0.65);
 				maxScale=totalLength;
 				currScale=totalLength;
-				currPosition=data.length;
+				currPosition=totalLength;
 				calcBusinessAmount();
 				calcColor();
 				draw();
@@ -1863,6 +1880,7 @@
 			if(period==10){
 				marketDetail.amount=amount;
 				marketDetail.dayAmount=1;
+				marketDetail.singleDay=amount;
 			}else if(period==11){
 				marketDetail.amount=amount*5;
 				marketDetail.dayAmount=5;
