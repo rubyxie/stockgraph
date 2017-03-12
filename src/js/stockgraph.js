@@ -1570,6 +1570,7 @@
 				}else if(e.wheelDelta<0){
 					pinchout(e);
 				}
+				e.preventDefault();
 			};
 
 			//AOP封装方法
