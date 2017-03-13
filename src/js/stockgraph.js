@@ -24,7 +24,7 @@
 			realCursorCanvas,cacheCursorCanvas,realCursorContext,cacheCursorContext;
 		//配置变量
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
-			fontSize,showCursor,maColor,gapOccupy,dayCount,loading;
+			fontSize,maColor,gapOccupy,dayCount,loading,cursorIndex,cursorX;
 		//方法&对象
 		var init,draw,resize,refreshCache,candlePainter,kBarPainter,trendBarPainter,
 			kControl,trendControl,refreshCursorCache,trendPainter,initDom,initCanvas,
@@ -58,6 +58,7 @@
 			cacheCanvas=container.cacheCanvas || document.createElement("canvas");
 			realContext=realCanvas.getContext("2d");
 			cacheContext=cacheCanvas.getContext("2d");
+			realCanvas.style.position="absolute";
 			container.appendChild(realCanvas);
 			//十字光标画布
 			realCursorCanvas=container.realCursorCanvas || document.createElement("canvas");
@@ -126,7 +127,6 @@
 				return result;
 			}
 		};
-
 		/*------------------------工具方法end---------------------------*/
 
 		/*------------------------绘图器---------------------------*/
@@ -141,7 +141,7 @@
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
 				drawFrame,drawUpCandle,drawDownCandle,calcAxis,insideOf,drawMA,
-				drawMAText;
+				drawMAText,showCursor,drawCursor,drawXTip,drawYTip;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
@@ -397,6 +397,75 @@
 				}
 			};
 
+			//绘制x轴tip
+			drawXTip=function(x,data){
+				var content,contentLength;
+				//线
+				cacheCursorContext.beginPath();
+				cacheCursorContext.strokeStyle="#000";
+				cacheCursorContext.moveTo(x,topY);
+				cacheCursorContext.lineTo(x,bottomY);
+				cacheCursorContext.stroke();
+				//文字
+				content=data[0];
+				cacheCursorContext.fillStyle="#999";
+				cacheCursorContext.font=fontSize+"px Arial";
+				cacheCursorContext.textBaseline="bottom";
+				contentLength=cacheCursorContext.measureText(content).width/2;
+				if(x+contentLength>rightX){
+					cacheCursorContext.textAlign="right";
+					cacheCursorContext.fillText(content,rightX,bottomY);
+				}else if(x-contentLength<leftX){
+					cacheCursorContext.textAlign="left";
+					cacheCursorContext.fillText(content,leftX,bottomY);
+				}else{
+					cacheCursorContext.textAlign="center";
+					cacheCursorContext.fillText(content,x,bottomY);
+				}
+			};
+
+			//绘制y轴tip
+			drawYTip=function(y,data){
+				var content;
+				if(y>bottomY){
+					y=bottomY;
+				}
+				//线
+				cacheCursorContext.beginPath();
+				cacheCursorContext.strokeStyle="#000";
+				cacheCursorContext.moveTo(leftX,y);
+				cacheCursorContext.lineTo(rightX,y);
+				cacheCursorContext.stroke();
+				//文字
+				content=(max-range*(y-topY)/height).toFixed(2);
+				cacheCursorContext.fillStyle="#999";
+				cacheCursorContext.font=fontSize+"px Arial";
+				cacheCursorContext.textAlign="left";
+				cacheCursorContext.textBaseline="middle";
+				cacheCursorContext.fillText(content,leftX,y);
+			};
+
+			//显示蜡烛图十字光标
+			drawCursor=function(x,y){
+				//计算触控事件所在的K线数据索引
+				cursorIndex=Math.ceil((x-leftX-gapWidth/2)/(gapWidth+kWidth));
+				/*for(var i= 0,cx=gapWidth/2;cx<x;i++,cx+=gapWidth+kWidth){
+
+				}
+				cursorIndex=i;
+				cursorX=cx-gapWidth/2-kWidth/2;*/
+				//光标头部越界
+				cursorIndex=cursorIndex<1 ? 1:cursorIndex;
+				//光标尾部越界
+				cursorIndex=cursorIndex<end-start ? cursorIndex:end-start;
+				//计算柱中心坐标
+				cursorX=painterTool.getOdd(leftX+cursorIndex*(gapWidth+kWidth)-kWidth/2);
+				//尾部取数据数组越界
+				cursorIndex+=start-1;
+				drawXTip(cursorX,data[cursorIndex]);
+				drawYTip(painterTool.getOdd(y),data[cursorIndex]);
+			};
+
 			/*
 			 * 初始化基本配置
 			 * 数据不在init方法中被传入，否则触控事件就要多次不必要的调用init方法
@@ -435,12 +504,18 @@
 					return false;
 				}
 			};
+
+			//绘制蜡烛图十字光标
+			showCursor=function(x,y){
+				drawCursor(x,y);
+			};
 			
 			return {
 				initSize:initSize,
 				drawReady:drawReady,
 				drawFrame:drawFrame,
 				resizeDraw:resizeDraw,
+				showCursor:showCursor,
 				insideOf:insideOf
 			};
 		})();
@@ -454,7 +529,7 @@
 				bottomY,barX,layout,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,drawFrame,handleData,drawGrid,
-				drawBar,calcAxis,insideOf,drawMA;
+				drawBar,calcAxis,insideOf,drawMA,showCursor,drawCursor;
 			//固定配置
 			layout={a:0.74,b:0.01,c:0.01,d:0.01};
 
@@ -590,6 +665,15 @@
 				}
 			};
 
+			//显示日K交易量图十字光标
+			drawCursor=function(x,y){
+				cacheCursorContext.beginPath();
+				cacheCursorContext.strokeStyle="#000";
+				cacheCursorContext.moveTo(cursorX,topY);
+				cacheCursorContext.lineTo(cursorX,bottomY);
+				cacheCursorContext.stroke();
+			};
+
 			/*
 			 * 初始化基本配置
 			 * 数据不在initSize方法中被传入，否则触控事件就要多次不必要的调用init方法
@@ -628,11 +712,17 @@
 				}
 			};
 
+			//绘制日K线交易量图十字光标
+			showCursor=function(x,y){
+				drawCursor(x,y);
+			};
+
 			return {
 				initSize:initSize,
 				drawReady:drawReady,
 				drawFrame:drawFrame,
 				resizeDraw:resizeDraw,
+				showCursor:showCursor,
 				insideOf:insideOf
 			};
 		})();
@@ -1229,7 +1319,7 @@
 				currPosition,data;
 			//方法
 			var init,draw,enlarge,narrow,scrollRight,scrollLeft,
-				calcMA,calcColor;
+				calcMA,calcColor,showCursor,clearCursor;
 			//固定变量
 			scaleStep=1;
 			scrollStep=1;
@@ -1273,6 +1363,21 @@
 						data[i].color=0;
 					}
 				}
+			};
+
+			//日K十字光标
+			showCursor=function(x,y){
+				cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
+				for(var i in painterStack){
+					painterStack[i].showCursor(x,y);
+				}
+				refreshCursorCache();
+			};
+
+			//清除十字光标
+			clearCursor=function(){
+				cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
+				refreshCursorCache();
 			};
 
 			//控制器启动绘图
@@ -1358,7 +1463,9 @@
 				enlarge:enlarge,
 				narrow:narrow,
 				scrollLeft:scrollLeft,
-				scrollRight:scrollRight
+				scrollRight:scrollRight,
+				showCursor:showCursor,
+				clearCursor:clearCursor
 			};
 		})();
 
@@ -1513,7 +1620,7 @@
 		eventControl=(function(){
 			//变量
 			var hammerManager,hammerPan,hammerPinch,hammerPress,offsetLeft,offsetTop,
-				x,y;
+				x,y,cursorShowed;
 			//方法-避免事件未被清理
 			var press,pressup,panup,pandown,panright,panleft,
 				panend,pinchin,pinchout,mousewheel,setup,bindListener,
@@ -1526,32 +1633,54 @@
 
 			//长按
 			press=function(e){
+				cursorShowed=true;
+				currControl.showCursor(x,y);
 			};
 
 			//抬起手指
 			pressup=function(e){
+				cursorShowed=false;
+				currControl.clearCursor();
 			};
 
 			//向上滑
 			panup=function(e){
+				if(cursorShowed){
+					currControl.showCursor(x,y);
+				}
 			};
 
 			//向下滑
 			pandown=function(e){
+				if(cursorShowed){
+					currControl.showCursor(x,y);
+				}
 			};
 
 			//手指右滑
 			panright=function(e){
-				currControl.scrollRight();
+				if(cursorShowed){
+					currControl.showCursor(x,y);
+				}else{
+					currControl.scrollRight();
+				}
 			};
 
 			//手指左滑
 			panleft=function(e){
-				currControl.scrollLeft();
+				if(cursorShowed){
+					currControl.showCursor(x,y);
+				}else{
+					currControl.scrollLeft();
+				}
 			};
 
 			//结束滑动
 			panend=function(e){
+				if(cursorShowed){
+					cursorShowed=false;
+					currControl.clearCursor();
+				}
 			};
 
 			//缩小
