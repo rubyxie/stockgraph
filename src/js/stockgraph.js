@@ -382,6 +382,7 @@
 			
 			//根据process进度情况，绘制K线蜡烛图图形帧
 			drawFrame=function(){
+				var width=gapWidth+kWidth;
 				drawGrid();
 				candleX=leftX+gapWidth;
 				for(var i=start;i<end;i++){
@@ -390,7 +391,7 @@
 					}else{
 						drawDownCandle(candleX,data[i]);
 					}
-					candleX+=gapWidth+kWidth;
+					candleX+=width;
 				}
 				for(i in data.maData){
 					drawMA(i);
@@ -447,19 +448,25 @@
 
 			//显示蜡烛图十字光标
 			drawCursor=function(x,y){
+				var width=gapWidth+kWidth;
+				/*-------------公式计算找坐标---------------*/
 				//计算触控事件所在的K线数据索引
-				cursorIndex=Math.ceil((x-leftX-gapWidth/2)/(gapWidth+kWidth));
-				/*for(var i= 0,cx=gapWidth/2;cx<x;i++,cx+=gapWidth+kWidth){
-
-				}
-				cursorIndex=i;
-				cursorX=cx-gapWidth/2-kWidth/2;*/
+				cursorIndex=Math.ceil((x-leftX-gapWidth/2-width)/width)+1;
 				//光标头部越界
 				cursorIndex=cursorIndex<1 ? 1:cursorIndex;
 				//光标尾部越界
 				cursorIndex=cursorIndex<end-start ? cursorIndex:end-start;
 				//计算柱中心坐标
-				cursorX=painterTool.getOdd(leftX+cursorIndex*(gapWidth+kWidth)-kWidth/2);
+				cursorX=painterTool.getOdd(leftX+gapWidth/2+cursorIndex*width-width/2);
+				/*-------------遍历找坐标---------------*/
+				/*cursorX=leftX+width+gapWidth/2;
+				cursorIndex=1;
+				while(cursorX<x){
+					cursorIndex++;
+					cursorX+=width;
+				}
+				console.log(cursorX,x);
+				cursorX=painterTool.getOdd(cursorX-width/2);*/
 				//尾部取数据数组越界
 				cursorIndex+=start-1;
 				drawXTip(cursorX,data[cursorIndex]);
@@ -818,7 +825,7 @@
 				cacheContext.fillStyle="#999";
 				for(i=1,l=marketDetail.length;i<l;i++){
 					position=i*avg;
-					if(position>=start && position<end){
+					if(position>=start && position<start+amount){
 						x=leftX+(position-start)*(gapWidth+kWidth);
 						painterTool.drawDashed(
 							{x:painterTool.getOdd(x),y:painterTool.getOdd(topY)},
@@ -1485,13 +1492,10 @@
 
 			//计算交易量值
 			calcBusinessAmount=function(){
-				var i,l;
-				//增量分时图
 				if(data.append){
-					i=data.length-1;
-					data[i][3]=data[i][3]-data.lastBA;
 					return ;
 				}
+				var i,l;
 				//倒叙相减
 				for(l=data.length,i=l-1;i>0;i--){
 					data[i][3]=data[i][3]-data[i-1][3];
@@ -1503,8 +1507,6 @@
 				var i,l;
 				//增量分时图
 				if(data.append){
-					i=data.length-1;
-					data[i].color=data[i][1]<data[i-1][1] ? 0:1;
 					return ;
 				}
 				//第一个柱和昨收比
@@ -1694,6 +1696,7 @@
 			};
 
 			mousewheel=function(e){
+				panend();
 				if(e.wheelDelta>0){
 					pinchin(e);
 				}else if(e.wheelDelta<0){
@@ -1740,8 +1743,15 @@
 
 			//设置container的偏移量，计算坐标点
 			setOffset=function(){
-				offsetLeft=container.offsetLeft;
-				offsetTop=container.offsetTop;
+				var parent;
+				parent=container;
+				offsetLeft=parent.offsetLeft;
+				offsetTop=parent.offsetTop;
+				while(parent.offsetParent){
+					parent=parent.offsetParent;
+					offsetLeft+=parent.offsetLeft;
+					offsetTop+=parent.offsetTop;
+				}
 			};
 
 			return {
@@ -1911,7 +1921,7 @@
 
 		//分时图设置定时器，优化美股时差
 		setTimer=function(){
-			var i,l,now;
+			var i,l,now,minutes;
 			clearInterval(trendTimer);
 			trendTimer=setInterval(function(){
 				if(storage.period<10){
@@ -1919,9 +1929,13 @@
 					return ;
 				}
 				now=new Date();
-				now=parseInt(now.getHours()+""+now.getMinutes());
+				minutes=now.getMinutes();
+				if(minutes<10){
+					minutes="0"+minutes;
+				}
+				now=parseInt(now.getHours()+""+minutes);
 				for(i=0,l=storage.marketDetail.length;i<l;i++){
-					if(now>=storage.marketDetail[i].open_time && now<=storage.marketDetail[i].open_time){
+					if(now>=storage.marketDetail[i].open_time && now<=storage.marketDetail[i].close_time){
 						appendTrend();
 					}
 				}
@@ -1942,9 +1956,11 @@
 
 		//分时增量查询结果处理
 		handleAppend=function(data){
-			var now;
+			var now,temp;
 			storage.trend.append=true;
 			if(data.length==1){
+				data[0][3]=data[0][3]-storage.trend.lastData[3];
+				data[0].color=data[0][1]<storage.trend.lastData[1] ? 0:1;
 				storage.trend.pop();
 				storage.trend.push(data[0]);
 			}else{
@@ -1953,11 +1969,17 @@
 				//开盘清数据
 				if(now==storage.marketDetail[0].open_time){
 					storage.trend=[];
+					storage.trend.lastData=[0,0,0,0];
 				}
+				data[1][3]=data[1][3]-data[0][3];
+				temp=data[0].concat();
+				data[0][3]=data[0][3]-storage.trend.lastData[3];
+				data[0].color=data[0][1]<storage.trend.lastData[1] ? 0:1;
+				data[1].color=data[1][1]<data[0][1] ? 0:1;
+				storage.trend.lastData=temp;
 				storage.trend.pop();
 				storage.trend.push(data[0]);
 				storage.trend.push(data[1]);
-				storage.trend.lastBA=data[0][3];
 			}
 			KPainter.draw(storage.trend,storage.period);
 		};
@@ -1980,7 +2002,7 @@
 			}
 			storage.trend.preclosePx=storage.preclosePx;
 			storage.trend.marketDetail=storage.marketDetail;
-			storage.trend.lastBA=storage.trend[storage.trend.length-2][3];
+			storage.trend.lastData=storage.trend[storage.trend.length-2].concat();
 			KPainter.draw(storage.trend,storage.period);
 		};
 
