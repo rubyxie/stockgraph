@@ -28,7 +28,8 @@
 		//方法&对象
 		var init,draw,resize,refreshCache,candlePainter,kBarPainter,trendBarPainter,
 			kControl,trendControl,refreshCursorCache,trendPainter,initDom,initCanvas,
-			animate,painterTool,eventControl,currControl,triggerControl,showLoading;
+			animate,painterTool,eventControl,currControl,triggerControl,showLoading,
+			extraPainterCollection;
 
 		//初始化dom元素，仅需执行一次
 		initDom=function(){
@@ -131,6 +132,265 @@
 
 		/*------------------------绘图器---------------------------*/
 		/*
+		 * 补充绘图器
+		 * 包含：MACD指标绘图器
+		 */
+		extraPainterCollection=(function(){
+			//配置变量
+			var data,layout,width,height,leftX,rightX,topY,bottomY;
+			//方法
+			var initSize,initValue,drawGrid,insideOf,MACDPainter;
+
+			//为固定配置变量赋值
+			layout={a:0.79,b:0.01,c:0.01,d:0.01};
+
+			//设置布局属性，画布长宽会在resize时重新计算
+			initValue=function(){
+				leftX=painterTool.getOdd(realCanvas.width*layout.d,false);
+				rightX=painterTool.getOdd(realCanvas.width*(1-layout.b),true);
+				topY=painterTool.getOdd(realCanvas.height*layout.a,false);
+				bottomY=painterTool.getOdd(realCanvas.height*(1-layout.c),true);
+				width=rightX-leftX;
+				height=bottomY-topY;
+			};
+
+			//绘制补充绘图器的边框网格
+			drawGrid=function(){
+				var y;
+				cacheContext.beginPath();
+				cacheContext.strokeStyle="#000";
+				cacheContext.lineWidth=1;
+				//绘制实线
+				cacheContext.moveTo(leftX,topY);
+				cacheContext.lineTo(rightX,topY);
+				cacheContext.lineTo(rightX,bottomY);
+				cacheContext.lineTo(leftX,bottomY);
+				cacheContext.closePath();
+				cacheContext.stroke();
+				//绘制虚线
+				y=painterTool.getOdd(topY+height/2);
+				painterTool.drawDashed({x:leftX,y:y},{x:rightX,y:y});
+			};
+
+			/*
+			 * 初始化基本配置
+			 * 数据不在init方法中被传入，否则触控事件就要多次不必要的调用init方法
+			 */
+			initSize=function(){
+				initValue();
+			};
+
+			//判断x,y是否在绘制区域内
+			insideOf=function(x,y){
+				if(x>=leftX && x<=rightX && y>=topY && y<=bottomY){
+					return true;
+				}else{
+					return false;
+				}
+			};
+
+			/*
+			 * MACD绘图器
+			 * EMA（12） = 前一日EMA（12） X 11/13 + 今日收盘 价 X 2/13
+			 * EMA（26） = 前一日EMA（26） X 25/27 + 今日收盘价 X 2/27
+			 * DIF = EMA（12） - EMA（26）
+			 * DEA = （前一日DEA X 8/10 + 今日DIF X 2/10）
+			 * （DIF-DEA）*2为MACD柱状图
+			 */
+			MACDPainter=(function(){
+				//变量
+				var data,start,end,ema12,ema26,dif,dea,macd,
+					max,min,range,macdX,middleY;
+				//方法
+				var drawReady,resizeDraw,drawFrame,showCursor,drawCursor,handleData,
+					calcData,calcAxis,drawMACD,drawLine,drawText;
+
+				//计算坐标点
+				calcAxis=function(){
+					var i;
+					max=min=0;
+					for(i=start;i<end;i++){
+						if(max<dif[i].data){
+							max=dif[i].data;
+						}
+						if(max<dea[i].data){
+							max=dea[i].data;
+						}
+						if(max<macd[i].data){
+							max=macd[i].data;
+						}
+						if(min>dif[i].data){
+							min=dif[i].data;
+						}
+						if(min>dea[i].data){
+							min=dea[i].data;
+						}
+						if(min>macd[i].data){
+							min=macd[i].data;
+						}
+					}
+					max=Math.max(max,Math.abs(min));
+					min=-max;
+					range=max*2;
+					for(i=start;i<end;i++){
+						dif[i].Axis=topY+height*(max-dif[i].data)/range;
+						dea[i].Axis=topY+height*(max-dea[i].data)/range;
+						macd[i].height=height*macd[i].data/range;
+						macd[i].color=macd[i].data<0 ? 0:1;
+					}
+				};
+
+				//计算MACD各项指标
+				calcData=function(){
+					ema12=[];
+					ema26=[];
+					dif=[];
+					dea=[];
+					macd=[];
+					ema12.push(data[0][4]);
+					ema26.push(data[0][4]);
+					dif.push({data:0});
+					dea.push({data:0});
+					macd.push({data:0});
+					for(var i=1,l=data.length;i<l;i++){
+						ema12.push(ema12[i-1]*11/13+data[i][4]*2/13);
+						ema26.push(ema26[i-1]*25/27+data[i][4]*2/17);
+						dif.push({data:ema12[i]-ema26[i]});
+						dea.push({data:dea[i-1].data*8/10+dif[i].data*2/10});
+						macd.push({data:(dif[i].data-dea[i].data)*2});
+					}
+				};
+
+				//处理MACD数据
+				handleData=function(){
+					if(data.MACD){
+						return ;
+					}
+					data.MACD=true;
+					calcData();
+					middleY=topY+height/2;
+				};
+
+				//绘制MACD柱
+				drawMACD=function(x,data){
+					var y;
+					cacheContext.beginPath();
+					cacheContext.fillStyle=kColor[data.color];
+					cacheContext.moveTo(x,middleY);
+					cacheContext.lineTo(x+kWidth,middleY);
+					y=middleY-data.height*process;
+					cacheContext.lineTo(x+kWidth,y);
+					cacheContext.lineTo(x,y);
+					cacheContext.closePath();
+					cacheContext.fill();
+				};
+
+				//绘制DIF,DEA线
+				drawLine=function(index){
+					var value,x,l;
+					value=data.maData[index];
+					x=leftX+gapWidth+kWidth/2;
+					l=start+Math.floor((end-start)*process);
+					cacheContext.beginPath();
+					cacheContext.strokeStyle=maColor[index];
+					cacheContext.lineWidth=1;
+					//为ma补足头部图形
+					if(start>0){
+						cacheContext.moveTo(leftX,(value[start].maBaAxis+bottomY-height*value[start-1][1]/max)/2);
+					}
+					for(var i=start;i<l;i++){
+						cacheContext.lineTo(x,value[i].maBaAxis);
+						x+=gapWidth+kWidth;
+					}
+					//为ma补足尾部图形
+					if(i==end){
+						if(value[i]!="-"){
+							cacheContext.lineTo(rightX,(value[i-1].maBaAxis+value[i].maBaAxis)/2);
+						}
+					}
+					cacheContext.stroke();
+				};
+
+				//绘制MACDy轴max,min文字
+				drawText=function(){
+					cacheContext.fillStyle="#999";
+					cacheContext.font=fontSize+"px Arial";
+					cacheContext.textAlign="left";
+					cacheContext.textBaseline="top";
+					cacheContext.fillText(max.toFixed(2),leftX,topY);
+					cacheContext.textBaseline="middle";
+					cacheContext.fillText("0.00",leftX,middleY);
+					cacheContext.textBaseline="bottom";
+					cacheContext.fillText(min.toFixed(2),leftX,bottomY);
+				};
+
+				//绘制MACD帧
+				drawFrame=function(){
+					drawGrid();
+					macdX=leftX+gapWidth;
+					for(var i=start;i<end;i++){
+						drawMACD(macdX,macd[i]);
+						macdX+=gapWidth+kWidth;
+					}
+					drawText();
+					/*for(i in data.maData){
+						drawMA(i);
+					}*/
+				};
+
+				//绘制MACD图十字光标
+				drawCursor=function(x,y){
+					cacheCursorContext.beginPath();
+					cacheCursorContext.strokeStyle="#000";
+					cacheCursorContext.moveTo(cursorX,topY);
+					cacheCursorContext.lineTo(cursorX,bottomY);
+					cacheCursorContext.stroke();
+				};
+
+				//绘制MACD图十字光标
+				showCursor=function(x,y){
+					drawCursor(x,y);
+				};
+
+				/*
+				 * 根据传入的数据初始化配置变量，每次执行drawReady就认为数据有变化
+				 * 接收二维数组为参数，每一项包含[日期，开盘价，最高价，最低价，收盘价，成交量];
+				 * candleData本身为数组，包含maData指针指向均线数组，axis属性指向坐标数组
+				 */
+				drawReady=function(kData,startPosition,endPosition){
+					if(!kData || kData.length==0){
+						return ;
+					}
+					data=kData;
+					start=startPosition;
+					end=endPosition;
+					handleData();
+					calcAxis();
+				};
+
+				//onresize重绘
+				resizeDraw=function(){
+					initValue();
+					calcAxis();
+					drawFrame();
+				};
+
+				return {
+					drawReady:drawReady,
+					drawFrame:drawFrame,
+					resizeDraw:resizeDraw,
+					showCursor:showCursor,
+					insideOf:insideOf
+				}
+			})();
+
+			return {
+				initSize:initSize,
+				MACDPainter:MACDPainter
+			};
+		})();
+
+		/*
 		 * K线蜡烛绘图器，子绘图器操作在缓冲画布中，不影响显示
 		 */
 		candlePainter=(function(){
@@ -144,7 +404,7 @@
 				drawMAText,showCursor,drawCursor,drawXTip,drawYTip;
 
 			//为固定配置变量赋值
-			layout={a:0.01,b:0.01,c:0.3,d:0.01};
+			layout={a:0.01,b:0.01,c:0.46,d:0.01};
 
 			//设置布局属性，画布长宽会在resize时重新计算
 			initValue=function(){
@@ -398,7 +658,7 @@
 				}
 			};
 
-			//绘制x轴tip
+			//绘制日Kx轴tip
 			drawXTip=function(x,data){
 				var content,contentLength;
 				//线
@@ -425,7 +685,7 @@
 				}
 			};
 
-			//绘制y轴tip
+			//绘制日Ky轴tip
 			drawYTip=function(y,data){
 				var content;
 				if(y>bottomY){
@@ -538,7 +798,7 @@
 			var initSize,drawReady,resizeDraw,drawFrame,handleData,drawGrid,
 				drawBar,calcAxis,insideOf,drawMA,showCursor,drawCursor;
 			//固定配置
-			layout={a:0.74,b:0.01,c:0.01,d:0.01};
+			layout={a:0.57,b:0.01,c:0.23,d:0.01};
 
 			initValue=function(){
 				leftX=painterTool.getOdd(realCanvas.width*layout.d,false);
@@ -745,7 +1005,8 @@
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,draw1Grid,handleData,
 				draw1Frame,calcAxis,insideOf,draw1Trend,draw1Text,draw5Frame,
-				draw5Grid,draw5Trend,draw5Text,drawFrame;
+				draw5Grid,draw5Trend,draw5Text,drawFrame,showCursor,drawCursor,
+				drawXTip,drawYTip;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
@@ -1106,6 +1367,86 @@
 				}
 			};
 
+			//绘制x轴tip
+			drawXTip=function(x,data){
+				var content,contentLength;
+				//线
+				cacheCursorContext.beginPath();
+				cacheCursorContext.strokeStyle="#000";
+				cacheCursorContext.moveTo(x,topY);
+				cacheCursorContext.lineTo(x,bottomY);
+				cacheCursorContext.stroke();
+				//文字
+				content=data[0];
+				cacheCursorContext.fillStyle="#999";
+				cacheCursorContext.font=fontSize+"px Arial";
+				cacheCursorContext.textBaseline="bottom";
+				contentLength=cacheCursorContext.measureText(content).width/2;
+				if(x+contentLength>rightX){
+					cacheCursorContext.textAlign="right";
+					cacheCursorContext.fillText(content,rightX,bottomY);
+				}else if(x-contentLength<leftX){
+					cacheCursorContext.textAlign="left";
+					cacheCursorContext.fillText(content,leftX,bottomY);
+				}else{
+					cacheCursorContext.textAlign="center";
+					cacheCursorContext.fillText(content,x,bottomY);
+				}
+			};
+
+			//绘制y轴tip
+			drawYTip=function(y,data){
+				var content;
+				if(y>bottomY){
+					y=bottomY;
+				}
+				//线
+				cacheCursorContext.beginPath();
+				cacheCursorContext.strokeStyle="#000";
+				cacheCursorContext.moveTo(leftX,y);
+				cacheCursorContext.lineTo(rightX,y);
+				cacheCursorContext.stroke();
+				//文字
+				content=(max-range*(y-topY)/height).toFixed(2);
+				cacheCursorContext.fillStyle="#999";
+				cacheCursorContext.font=fontSize+"px Arial";
+				cacheCursorContext.textAlign="left";
+				cacheCursorContext.textBaseline="middle";
+				cacheCursorContext.fillText(content,leftX,y);
+			};
+
+
+			//绘制分时图十字光标
+			drawCursor=function(x,y){
+				var width=gapWidth+kWidth;
+				/*-------------公式计算找坐标---------------*/
+				//计算触控事件所在的K线数据索引
+				/*cursorIndex=Math.ceil((x-leftX-gapWidth/2-width)/width)+1;
+				//光标头部越界
+				cursorIndex=cursorIndex<1 ? 1:cursorIndex;
+				//光标尾部越界
+				cursorIndex=cursorIndex<end-start ? cursorIndex:end-start;
+				//计算柱中心坐标
+				cursorX=painterTool.getOdd(leftX+gapWidth/2+cursorIndex*width-width/2);*/
+				/*-------------遍历找坐标---------------*/
+				cursorX=leftX+width/2;
+				cursorIndex=1;
+				while(cursorX<x){
+					cursorIndex++;
+					cursorX+=width;
+				}
+				if(cursorIndex<data.length){
+					cursorX=painterTool.getOdd(cursorX-width/2);
+				}else{
+					cursorIndex=data.length-start;
+					cursorX=painterTool.getOdd(leftX+(cursorIndex-1)*width);
+				}
+				//尾部取数据数组越界
+				cursorIndex+=start-1;
+				drawXTip(cursorX,data[cursorIndex]);
+				drawYTip(painterTool.getOdd(y),data[cursorIndex]);
+			};
+
 			/*
 			 * 初始化基本配置
 			 * 数据不在initSize方法中被传入，否则触控事件就要多次不必要的调用init方法
@@ -1146,11 +1487,17 @@
 				}
 			};
 
+			//绘制分时图十字光标
+			showCursor=function(x,y){
+				drawCursor(x,y);
+			};
+
 			return {
 				initSize:initSize,
 				drawReady:drawReady,
 				drawFrame:drawFrame,
 				resizeDraw:resizeDraw,
+				showCursor:showCursor,
 				insideOf:insideOf
 			};
 		})();
@@ -1164,7 +1511,7 @@
 				bottomY,barX,layout,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,drawFrame,handleData,drawGrid,
-				drawBar,calcAxis,insideOf;
+				drawBar,calcAxis,insideOf,showCursor,drawCursor;
 			//固定配置
 			layout={a:0.74,b:0.01,c:0.01,d:0.01};
 
@@ -1271,6 +1618,15 @@
 				}
 			};
 
+			//显示分时图交易量图十字光标
+			drawCursor=function(x,y){
+				cacheCursorContext.beginPath();
+				cacheCursorContext.strokeStyle="#000";
+				cacheCursorContext.moveTo(cursorX,topY);
+				cacheCursorContext.lineTo(cursorX,bottomY);
+				cacheCursorContext.stroke();
+			};
+
 			/*
 			 * 初始化基本配置
 			 * 数据不在initSize方法中被传入，否则触控事件就要多次不必要的调用init方法
@@ -1308,11 +1664,17 @@
 				}
 			};
 
+			//绘制分时交易量图十字光标
+			showCursor=function(x,y){
+				drawCursor(x,y);
+			};
+
 			return {
 				initSize:initSize,
 				drawReady:drawReady,
 				drawFrame:drawFrame,
 				resizeDraw:resizeDraw,
+				showCursor:showCursor,
 				insideOf:insideOf
 			};
 		})();
@@ -1381,7 +1743,7 @@
 				refreshCursorCache();
 			};
 
-			//清除十字光标
+			//清除日K十字光标
 			clearCursor=function(){
 				cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
 				refreshCursorCache();
@@ -1485,7 +1847,7 @@
 				currPosition,data;
 			//方法
 			var init,draw,enlarge,narrow,scrollRight,scrollLeft,calcColor,
-				calcBusinessAmount;
+				calcBusinessAmount,showCursor,clearCursor;
 			//固定变量
 			scaleStep=5;
 			scrollStep=2;
@@ -1536,6 +1898,21 @@
 					painterStack[i].drawReady(data,start,end);
 				}
 				animate();
+			};
+
+			//分时图十字光标
+			showCursor=function(x,y){
+				cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
+				for(var i in painterStack){
+					painterStack[i].showCursor(x,y);
+				}
+				refreshCursorCache();
+			};
+
+			//清除分时图十字光标
+			clearCursor=function(){
+				cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
+				refreshCursorCache();
 			};
 
 			//初始化比例尺
@@ -1611,7 +1988,9 @@
 				enlarge:enlarge,
 				narrow:narrow,
 				scrollLeft:scrollLeft,
-				scrollRight:scrollRight
+				scrollRight:scrollRight,
+				showCursor:showCursor,
+				clearCursor:clearCursor
 			};
 		})();
 
@@ -1780,6 +2159,7 @@
 			}else if(control==kControl){
 				painterStack.push(candlePainter);
 				painterStack.push(kBarPainter);
+				painterStack.push(extraPainterCollection.MACDPainter);
 			}
 			eventControl.destroy();
 			currControl=control;
@@ -1834,12 +2214,16 @@
 			kBarPainter.initSize();
 			trendPainter.initSize();
 			trendBarPainter.initSize();
+			extraPainterCollection.initSize();
 		};
 		
 		//开始绘制,接收接口返回的数据
 		draw=function(ajaxData,period){
 			loading=false;
 			rawData=ajaxData;
+			if(!rawData.append){
+				process=0;
+			}
 			if(period>9){
 				//分时图
 				triggerControl(trendControl);
@@ -2060,7 +2444,7 @@
 						queryMarketDetail(storage.code,storage.period);
 						queryTrend5Day(storage.code,storage.period);
 						queryPreclosePx(storage.code,storage.period);
-						setTimer();
+						//setTimer();
 						break;
 					default:
 						//K线图
