@@ -363,7 +363,7 @@
 				//右上角显示MACD指标值
 				drawCursorTip=function(){
 					var content,gap,x;
-					gap=gapWidth+kWidth*2+cacheCursorContext.measureText("MACD:+"+max.toFixed(2)).width;
+					gap=1.2*cacheCursorContext.measureText("MACD:+"+max.toFixed(2)).width;
 					x=rightX;
 					cacheCursorContext.font=fontSize+"px Arial";
 					cacheCursorContext.textBaseline="top";
@@ -449,7 +449,8 @@
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
 				drawFrame,drawUpCandle,drawDownCandle,calcAxis,insideOf,drawMA,
-				drawMAText,showCursor,drawCursor,drawXTip,drawYTip,showMAText;
+				drawMAText,showCursor,drawCursor,drawXTip,drawYTip,showMAText,
+				drawRoundRect;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.46,d:0.01};
@@ -713,6 +714,36 @@
 				}
 			};
 
+			drawRoundRect=function(x,y,w,h){
+				var r,change;
+				r=h/4;
+				change=2;
+				x-=change;
+				y-=change;
+				w+=change*2;
+				h+=change*2;
+				if(x<leftX){
+					x=leftX;
+				}else if((x+w)>rightX){
+					x=rightX-w;
+				}
+				if(y<topY){
+					y=topY;
+				}else if(y+h>bottomY){
+					y=bottomY-h;
+				}
+				cacheCursorContext.beginPath();
+				cacheCursorContext.strokeStyle="#999";
+				cacheCursorContext.fillStyle="#ddd";
+				cacheCursorContext.moveTo(x+r,y);
+				cacheCursorContext.arcTo(x+w,y,x+w,y+h,r);
+				cacheCursorContext.arcTo(x+w,y+h,x,y+h,r);
+				cacheCursorContext.arcTo(x,y+h,x,y,r);
+				cacheCursorContext.arcTo(x,y,x+r,y,r);
+				cacheCursorContext.stroke();
+				cacheCursorContext.fill();
+			};
+
 			//绘制日Kx轴tip
 			drawXTip=function(x,data){
 				var content,contentLength;
@@ -722,12 +753,14 @@
 				cacheCursorContext.moveTo(x,topY);
 				cacheCursorContext.lineTo(x,bottomY);
 				cacheCursorContext.stroke();
-				//文字
+				//背景
 				content=data[0];
+				contentLength=cacheCursorContext.measureText(content).width/2;
+				drawRoundRect(x-contentLength,bottomY-fontSize,contentLength*2,fontSize);
+				//文字
 				cacheCursorContext.fillStyle="#999";
 				cacheCursorContext.font=fontSize+"px Arial";
 				cacheCursorContext.textBaseline="bottom";
-				contentLength=cacheCursorContext.measureText(content).width/2;
 				if(x+contentLength>rightX){
 					cacheCursorContext.textAlign="right";
 					cacheCursorContext.fillText(content,rightX,bottomY);
@@ -742,7 +775,7 @@
 
 			//绘制日Ky轴tip
 			drawYTip=function(y,data){
-				var content;
+				var content,contentLength;
 				if(y>bottomY){
 					y=bottomY;
 				}
@@ -752,12 +785,23 @@
 				cacheCursorContext.moveTo(leftX,y);
 				cacheCursorContext.lineTo(rightX,y);
 				cacheCursorContext.stroke();
-				//文字
+				//背景
 				content=(max-range*(y-topY)/height).toFixed(2);
+				contentLength=cacheCursorContext.measureText(content).width;
+				drawRoundRect(leftX,y-fontSize/2,contentLength,fontSize);
+				//文字
 				cacheCursorContext.fillStyle="#999";
 				cacheCursorContext.font=fontSize+"px Arial";
 				cacheCursorContext.textAlign="left";
-				cacheCursorContext.textBaseline="middle";
+				if(y+fontSize/2>bottomY){
+					cacheCursorContext.textBaseline="bottom";
+					y=bottomY;
+				}else if(y-fontSize/2<topY){
+					cacheCursorContext.textBaseline="top";
+					y=topY;
+				}else{
+					cacheCursorContext.textBaseline="middle";
+				}
 				cacheCursorContext.fillText(content,leftX,y);
 			};
 
@@ -993,7 +1037,7 @@
 			//右上角显示交易量指标值
 			drawCursorTip=function(){
 				var content,gap,x;
-				gap=gapWidth+kWidth*2+cacheCursorContext.measureText("成交量:"+max).width;
+				gap=1.2*cacheCursorContext.measureText("成交量:"+max).width;
 				x=rightX;
 				cacheCursorContext.font=fontSize+"px Arial";
 				cacheCursorContext.textBaseline="top";
@@ -1006,7 +1050,9 @@
 				//ma
 				x-=gap*4;
 				for(var i in data.maData){
-					content="MA"+i+":"+parseInt(data.maData[i][cursorIndex][1]);
+					content=parseInt(data.maData[i][cursorIndex][1]);
+					content=isNaN(content) ? "-":content;
+					content="MA"+i+":"+content;
 					x+=gap;
 					cacheCursorContext.fillStyle=maColor[i];
 					cacheCursorContext.fillText(content,x,topY);
