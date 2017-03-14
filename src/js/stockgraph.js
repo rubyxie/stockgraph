@@ -362,28 +362,25 @@
 
 				//右上角显示MACD指标值
 				drawCursorTip=function(){
-					var content,gap,x,length;
-					gap=gapWidth+kWidth*2;
+					var content,gap,x;
+					gap=gapWidth+kWidth*2+cacheCursorContext.measureText("MACD:+"+max.toFixed(2)).width;
 					x=rightX;
 					cacheCursorContext.font=fontSize+"px Arial";
 					cacheCursorContext.textBaseline="top";
 					cacheCursorContext.textAlign="left";
 					//macd
 					content="MACD:"+macd[cursorIndex].data.toFixed(2);
-					length=cacheCursorContext.measureText(content).width;
-					x-=length+gap;
+					x-=gap;
 					cacheCursorContext.fillStyle=kColor[macd[cursorIndex].data<0 ? 0:1];
 					cacheCursorContext.fillText(content,x,topY);
 					//dea
 					content="DEA:"+dea[cursorIndex].data.toFixed(2);
-					length=cacheCursorContext.measureText(content).width;
-					x-=length+gap;
+					x-=gap;
 					cacheCursorContext.fillStyle=macdColor.dea;
 					cacheCursorContext.fillText(content,x,topY);
 					//dif
 					content="DIF:"+dif[cursorIndex].data.toFixed(2);
-					length=cacheCursorContext.measureText(content).width;
-					x-=length+gap;
+					x-=gap;
 					cacheCursorContext.fillStyle=macdColor.dif;
 					cacheCursorContext.fillText(content,x,topY);
 				};
