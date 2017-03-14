@@ -200,10 +200,14 @@
 			MACDPainter=(function(){
 				//变量
 				var data,start,end,ema12,ema26,dif,dea,macd,
-					max,min,range,macdX,middleY;
+					max,min,range,macdX,middleY,macdColor;
 				//方法
 				var drawReady,resizeDraw,drawFrame,showCursor,drawCursor,handleData,
 					calcData,calcAxis,drawMACD,drawLine,drawText;
+				macdColor={
+					dif:"#f5a623",
+					dea:"#2e84e6"
+				};
 
 				//计算坐标点
 				calcAxis=function(){
@@ -233,8 +237,8 @@
 					min=-max;
 					range=max*2;
 					for(i=start;i<end;i++){
-						dif[i].Axis=topY+height*(max-dif[i].data)/range;
-						dea[i].Axis=topY+height*(max-dea[i].data)/range;
+						dif[i].axis=topY+height*(max-dif[i].data)/range;
+						dea[i].axis=topY+height*(max-dea[i].data)/range;
 						macd[i].height=height*macd[i].data/range;
 						macd[i].color=macd[i].data<0 ? 0:1;
 					}
@@ -254,7 +258,7 @@
 					macd.push({data:0});
 					for(var i=1,l=data.length;i<l;i++){
 						ema12.push(ema12[i-1]*11/13+data[i][4]*2/13);
-						ema26.push(ema26[i-1]*25/27+data[i][4]*2/17);
+						ema26.push(ema26[i-1]*25/27+data[i][4]*2/27);
 						dif.push({data:ema12[i]-ema26[i]});
 						dea.push({data:dea[i-1].data*8/10+dif[i].data*2/10});
 						macd.push({data:(dif[i].data-dea[i].data)*2});
@@ -286,26 +290,46 @@
 				};
 
 				//绘制DIF,DEA线
-				drawLine=function(index){
-					var value,x,l;
-					value=data.maData[index];
+				drawLine=function(){
+					var x,l,i;
+					//DIF
 					x=leftX+gapWidth+kWidth/2;
 					l=start+Math.floor((end-start)*process);
 					cacheContext.beginPath();
-					cacheContext.strokeStyle=maColor[index];
+					cacheContext.strokeStyle=macdColor.dif;
 					cacheContext.lineWidth=1;
-					//为ma补足头部图形
+					//补足头部图形
 					if(start>0){
-						cacheContext.moveTo(leftX,(value[start].maBaAxis+bottomY-height*value[start-1][1]/max)/2);
+						cacheContext.moveTo(leftX,(dif[start].axis+topY+height*(max-dif[start-1].data)/range)/2);
 					}
-					for(var i=start;i<l;i++){
-						cacheContext.lineTo(x,value[i].maBaAxis);
+					for(i=start;i<l;i++){
+						cacheContext.lineTo(x,dif[i].axis);
 						x+=gapWidth+kWidth;
 					}
-					//为ma补足尾部图形
+					//补足尾部图形
 					if(i==end){
-						if(value[i]!="-"){
-							cacheContext.lineTo(rightX,(value[i-1].maBaAxis+value[i].maBaAxis)/2);
+						if(end<dif.length-1){
+							cacheContext.lineTo(rightX,(dif[i-1].axis+dif[i].axis)/2);
+						}
+					}
+					cacheContext.stroke();
+					//DEA
+					x=leftX+gapWidth+kWidth/2;
+					cacheContext.beginPath();
+					cacheContext.strokeStyle=macdColor.dea;
+					cacheContext.lineWidth=1;
+					//补足头部图形
+					if(start>0){
+						cacheContext.moveTo(leftX,(dea[start].axis+topY+height*(max-dea[start-1].data)/range)/2);
+					}
+					for(i=start;i<l;i++){
+						cacheContext.lineTo(x,dea[i].axis);
+						x+=gapWidth+kWidth;
+					}
+					//补足尾部图形
+					if(i==end){
+						if(end<dea.length-1){
+							cacheContext.lineTo(rightX,(dea[i-1].axis+dea[i].axis)/2);
 						}
 					}
 					cacheContext.stroke();
@@ -332,10 +356,8 @@
 						drawMACD(macdX,macd[i]);
 						macdX+=gapWidth+kWidth;
 					}
+					drawLine();
 					drawText();
-					/*for(i in data.maData){
-						drawMA(i);
-					}*/
 				};
 
 				//绘制MACD图十字光标
@@ -2343,11 +2365,13 @@
 			var now,temp;
 			storage.trend.append=true;
 			if(data.length==1){
+				//这分钟数据变动中
 				data[0][3]=data[0][3]-storage.trend.lastData[3];
 				data[0].color=data[0][1]<storage.trend.lastData[1] ? 0:1;
 				storage.trend.pop();
 				storage.trend.push(data[0]);
-			}else{
+			}else if(data.length==2){
+				//增量数据，这分钟数据确定了
 				now=new Date();
 				now=parseInt(now.getHours()+""+now.getMinutes());
 				//开盘清数据
@@ -2364,6 +2388,13 @@
 				storage.trend.pop();
 				storage.trend.push(data[0]);
 				storage.trend.push(data[1]);
+			}else{
+				//五日分时初始化append
+				var l=data.length-1;
+				data[l][3]=data[l][3]-storage.trend.lastData[3];
+				data[l].color=data[l][1]<storage.trend.lastData[1] ? 0:1;
+				storage.trend.pop();
+				storage.trend.push(data[l]);
 			}
 			KPainter.draw(storage.trend,storage.period);
 		};
@@ -2444,7 +2475,7 @@
 						queryMarketDetail(storage.code,storage.period);
 						queryTrend5Day(storage.code,storage.period);
 						queryPreclosePx(storage.code,storage.period);
-						//setTimer();
+						setTimer();
 						break;
 					default:
 						//K线图
