@@ -853,7 +853,8 @@
 				bottomY,barX,layout,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,drawFrame,handleData,drawGrid,
-				drawBar,calcAxis,insideOf,drawMA,showCursor,drawCursor;
+				drawBar,calcAxis,insideOf,drawMA,showCursor,drawCursor,
+				drawCursorTip;
 			//固定配置
 			layout={a:0.57,b:0.01,c:0.23,d:0.01};
 
@@ -989,6 +990,29 @@
 				}
 			};
 
+			//右上角显示交易量指标值
+			drawCursorTip=function(){
+				var content,gap,x;
+				gap=gapWidth+kWidth*2+cacheCursorContext.measureText("成交量:"+max).width;
+				x=rightX;
+				cacheCursorContext.font=fontSize+"px Arial";
+				cacheCursorContext.textBaseline="top";
+				cacheCursorContext.textAlign="left";
+				//成交量
+				content="成交量:"+data[cursorIndex][5];
+				x-=gap;
+				cacheCursorContext.fillStyle=kColor[data[cursorIndex].color];
+				cacheCursorContext.fillText(content,x,topY);
+				//ma
+				x-=gap*4;
+				for(var i in data.maData){
+					content="MA"+i+":"+parseInt(data.maData[i][cursorIndex][1]);
+					x+=gap;
+					cacheCursorContext.fillStyle=maColor[i];
+					cacheCursorContext.fillText(content,x,topY);
+				}
+			};
+
 			//显示日K交易量图十字光标
 			drawCursor=function(x,y){
 				cacheCursorContext.beginPath();
@@ -996,6 +1020,7 @@
 				cacheCursorContext.moveTo(cursorX,topY);
 				cacheCursorContext.lineTo(cursorX,bottomY);
 				cacheCursorContext.stroke();
+				drawCursorTip();
 			};
 
 			/*
