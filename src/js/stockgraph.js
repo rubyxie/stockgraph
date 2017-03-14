@@ -423,7 +423,7 @@
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,drawGrid,handleData,
 				drawFrame,drawUpCandle,drawDownCandle,calcAxis,insideOf,drawMA,
-				drawMAText,showCursor,drawCursor,drawXTip,drawYTip;
+				drawMAText,showCursor,drawCursor,drawXTip,drawYTip,showMAText;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.46,d:0.01};
@@ -528,20 +528,27 @@
 					word=data.maData[i][index][0]=="-" ? "-":(data.maData[i][index][0].toFixed(2));
 					word="MA"+i+"："+word;
 					maTips[i]=word;
-					wordWidth+=cacheContext.measureText(word).width;
+					wordWidth+=cacheCursorContext.measureText(word).width;
 					count++;
 				}
 				gapWidth=(width-wordWidth)/(count+1);
-				cacheContext.font=fontSize+"px Arial";
-				cacheContext.textBaseline="top";
-				cacheContext.textAlign="left";
+				cacheCursorContext.font=fontSize+"px Arial";
+				cacheCursorContext.textBaseline="top";
+				cacheCursorContext.textAlign="left";
 				wordX=leftX+gapWidth;
 				wordWidth/=count;
 				for(i in data.maData){
-					cacheContext.fillStyle=maColor[i];
-					cacheContext.fillText(maTips[i],wordX,topY);
+					cacheCursorContext.fillStyle=maColor[i];
+					cacheCursorContext.fillText(maTips[i],wordX,topY);
 					wordX+=wordWidth+gapWidth;
 				}
+			};
+
+			//显示最后一条ma值
+			showMAText=function(){
+				cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
+				drawMAText(end-1);
+				refreshCursorCache();
 			};
 			
 			//绘制坐标轴网格
@@ -577,7 +584,7 @@
 				cacheContext.fillText(data[start][0],leftX,bottomY);
 				cacheContext.textAlign="right";
 				cacheContext.fillText(data[end-1][0],rightX,bottomY);
-				drawMAText(end-1);
+				showMAText();
 			};
 
 			/*
@@ -753,6 +760,7 @@
 				cursorIndex+=start-1;
 				drawXTip(cursorX,data[cursorIndex]);
 				drawYTip(painterTool.getOdd(y),data[cursorIndex]);
+				drawMAText(cursorIndex);
 			};
 
 			/*
@@ -805,7 +813,8 @@
 				drawFrame:drawFrame,
 				resizeDraw:resizeDraw,
 				showCursor:showCursor,
-				insideOf:insideOf
+				insideOf:insideOf,
+				showMAText:showMAText
 			};
 		})();
 		
@@ -1769,6 +1778,7 @@
 			clearCursor=function(){
 				cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
 				refreshCursorCache();
+				candlePainter.showMAText();
 			};
 
 			//控制器启动绘图
