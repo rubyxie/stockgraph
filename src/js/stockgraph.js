@@ -203,7 +203,7 @@
 					max,min,range,macdX,middleY,macdColor;
 				//方法
 				var drawReady,resizeDraw,drawFrame,showCursor,drawCursor,handleData,
-					calcData,calcAxis,drawMACD,drawLine,drawText;
+					calcData,calcAxis,drawMACD,drawLine,drawText,drawCursorTip;
 				macdColor={
 					dif:"#f5a623",
 					dea:"#2e84e6"
@@ -360,6 +360,34 @@
 					drawText();
 				};
 
+				//右上角显示MACD指标值
+				drawCursorTip=function(){
+					var content,gap,x,length;
+					gap=gapWidth+kWidth*2;
+					x=rightX;
+					cacheCursorContext.font=fontSize+"px Arial";
+					cacheCursorContext.textBaseline="top";
+					cacheCursorContext.textAlign="left";
+					//macd
+					content="MACD:"+macd[cursorIndex].data.toFixed(2);
+					length=cacheCursorContext.measureText(content).width;
+					x-=length+gap;
+					cacheCursorContext.fillStyle=kColor[macd[cursorIndex].data<0 ? 0:1];
+					cacheCursorContext.fillText(content,x,topY);
+					//dea
+					content="DEA:"+dea[cursorIndex].data.toFixed(2);
+					length=cacheCursorContext.measureText(content).width;
+					x-=length+gap;
+					cacheCursorContext.fillStyle=macdColor.dea;
+					cacheCursorContext.fillText(content,x,topY);
+					//dif
+					content="DIF:"+dif[cursorIndex].data.toFixed(2);
+					length=cacheCursorContext.measureText(content).width;
+					x-=length+gap;
+					cacheCursorContext.fillStyle=macdColor.dif;
+					cacheCursorContext.fillText(content,x,topY);
+				};
+
 				//绘制MACD图十字光标
 				drawCursor=function(x,y){
 					cacheCursorContext.beginPath();
@@ -367,6 +395,7 @@
 					cacheCursorContext.moveTo(cursorX,topY);
 					cacheCursorContext.lineTo(cursorX,bottomY);
 					cacheCursorContext.stroke();
+					drawCursorTip();
 				};
 
 				//绘制MACD图十字光标
