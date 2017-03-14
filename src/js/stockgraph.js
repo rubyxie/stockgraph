@@ -2221,7 +2221,11 @@
 					for(var i in painterStack){
 						if(painterStack[i].insideOf(x,y)){
 							callback(e);
+							return ;
 						}
+					}
+					if(cursorShowed){
+						currControl.clearCursor();
 					}
 				};
 			};
