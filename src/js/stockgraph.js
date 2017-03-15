@@ -1282,8 +1282,10 @@
 				if(trendX>rightX){
 					trendX=rightX;
 				}
-				cacheContext.lineTo(trendX,data[i].axis);
-				cacheContext.stroke();
+				if(i<data.length){
+					cacheContext.lineTo(trendX,data[i].axis);
+					cacheContext.stroke();
+				}
 				//---绘制渐变阴影
 				cacheContext.beginPath();
 				gradient=cacheContext.createLinearGradient(leftX,topY+height*(max-valueMax)/range,leftX,bottomY);
@@ -1300,7 +1302,9 @@
 				if(trendX>rightX){
 					trendX=rightX;
 				}
-				cacheContext.lineTo(trendX,data[i].axis);
+				if(i<data.length){
+					cacheContext.lineTo(trendX,data[i].axis);
+				}
 				cacheContext.lineTo(trendX,bottomY);
 				cacheContext.closePath();
 				cacheContext.fill();
@@ -1318,7 +1322,9 @@
 				if(trendX>rightX){
 					trendX=rightX;
 				}
-				cacheContext.lineTo(trendX,data[i].avgAxis);
+				if(i<data.length){
+					cacheContext.lineTo(trendX,data[i].avgAxis);
+				}
 				cacheContext.stroke();
 			};
 
@@ -1742,7 +1748,9 @@
 					cacheContext.closePath();
 					cacheContext.fill();
 				}else{
-					drawBar(barX,data[i]);
+					if(i<data.length){
+						drawBar(barX,data[i]);
+					}
 				}
 			};
 
@@ -2287,6 +2295,8 @@
 			}
 			painterStack=[];
 			if(control==trendControl){
+				cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
+				refreshCursorCache();
 				painterStack.push(trendPainter);
 				painterStack.push(trendBarPainter);
 			}else if(control==kControl){
@@ -2488,6 +2498,8 @@
 				//开盘清数据
 				if(now==storage.marketDetail[0].open_time){
 					storage.trend=[];
+					storage.trend.preclosePx=storage.preclosePx;
+					storage.trend.marketDetail=storage.marketDetail;
 					storage.trend.lastData=[0,0,0,0];
 				}
 				data[1][3]=data[1][3]-data[0][3];
@@ -2523,12 +2535,15 @@
 
 		//检查数据完备与否，执行分时绘图方法，storage在刷新股票时会清空
 		handleTrend=function(){
+			var head;
 			if(storage.marketDetail==undefined || storage.trend==undefined || storage.preclosePx==undefined){
 				return ;
 			}
 			storage.trend.preclosePx=storage.preclosePx;
 			storage.trend.marketDetail=storage.marketDetail;
-			storage.trend.lastData=storage.trend[storage.trend.length-2].concat();
+			head=storage.trend.length-2;
+			head=head<0 ? 0:head;
+			storage.trend.lastData=storage.trend[head].concat();
 			KPainter.draw(storage.trend,storage.period);
 		};
 
