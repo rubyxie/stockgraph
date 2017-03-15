@@ -714,6 +714,7 @@
 				}
 			};
 
+			//绘制圆角矩形
 			drawRoundRect=function(x,y,w,h){
 				var r,change;
 				r=h/4;
@@ -1134,7 +1135,7 @@
 			var initSize,drawReady,resizeDraw,initValue,draw1Grid,handleData,
 				draw1Frame,calcAxis,insideOf,draw1Trend,draw1Text,draw5Frame,
 				draw5Grid,draw5Trend,draw5Text,drawFrame,showCursor,drawCursor,
-				drawXTip,drawYTip;
+				drawXTip,drawYTip,drawRoundRect;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
@@ -1501,6 +1502,37 @@
 				}
 			};
 
+			//绘制分时图圆角矩形
+			drawRoundRect=function(x,y,w,h){
+				var r,change;
+				r=h/4;
+				change=2;
+				x-=change;
+				y-=change;
+				w+=change*2;
+				h+=change*2;
+				if(x<leftX){
+					x=leftX;
+				}else if((x+w)>rightX){
+					x=rightX-w;
+				}
+				if(y<topY){
+					y=topY;
+				}else if(y+h>bottomY){
+					y=bottomY-h;
+				}
+				cacheCursorContext.beginPath();
+				cacheCursorContext.strokeStyle="#999";
+				cacheCursorContext.fillStyle="#ddd";
+				cacheCursorContext.moveTo(x+r,y);
+				cacheCursorContext.arcTo(x+w,y,x+w,y+h,r);
+				cacheCursorContext.arcTo(x+w,y+h,x,y+h,r);
+				cacheCursorContext.arcTo(x,y+h,x,y,r);
+				cacheCursorContext.arcTo(x,y,x+r,y,r);
+				cacheCursorContext.stroke();
+				cacheCursorContext.fill();
+			};
+
 			//绘制x轴tip
 			drawXTip=function(x,data){
 				var content,contentLength;
@@ -1510,8 +1542,11 @@
 				cacheCursorContext.moveTo(x,topY);
 				cacheCursorContext.lineTo(x,bottomY);
 				cacheCursorContext.stroke();
-				//文字
+				//背景
 				content=data[0];
+				contentLength=cacheCursorContext.measureText(content).width/2;
+				drawRoundRect(x-contentLength,bottomY-fontSize,contentLength*2,fontSize);
+				//文字
 				cacheCursorContext.fillStyle="#999";
 				cacheCursorContext.font=fontSize+"px Arial";
 				cacheCursorContext.textBaseline="bottom";
@@ -1530,7 +1565,7 @@
 
 			//绘制y轴tip
 			drawYTip=function(y,data){
-				var content;
+				var content,contentLength;
 				if(y>bottomY){
 					y=bottomY;
 				}
@@ -1540,12 +1575,23 @@
 				cacheCursorContext.moveTo(leftX,y);
 				cacheCursorContext.lineTo(rightX,y);
 				cacheCursorContext.stroke();
-				//文字
+				//背景
 				content=(max-range*(y-topY)/height).toFixed(2);
+				contentLength=cacheCursorContext.measureText(content).width;
+				drawRoundRect(leftX,y-fontSize/2,contentLength,fontSize);
+				//文字
 				cacheCursorContext.fillStyle="#999";
 				cacheCursorContext.font=fontSize+"px Arial";
 				cacheCursorContext.textAlign="left";
-				cacheCursorContext.textBaseline="middle";
+				if(y+fontSize/2>bottomY){
+					cacheCursorContext.textBaseline="bottom";
+					y=bottomY;
+				}else if(y-fontSize/2<topY){
+					cacheCursorContext.textBaseline="top";
+					y=topY;
+				}else{
+					cacheCursorContext.textBaseline="middle";
+				}
 				cacheCursorContext.fillText(content,leftX,y);
 			};
 
@@ -1645,7 +1691,7 @@
 				bottomY,barX,layout,start,end;
 			//方法
 			var initSize,drawReady,resizeDraw,drawFrame,handleData,drawGrid,
-				drawBar,calcAxis,insideOf,showCursor,drawCursor;
+				drawBar,calcAxis,insideOf,showCursor,drawCursor,drawCursorTip;
 			//固定配置
 			layout={a:0.74,b:0.01,c:0.01,d:0.01};
 
@@ -1754,6 +1800,20 @@
 				}
 			};
 
+			//显示分时图交易量
+			drawCursorTip=function(){
+				var content,gap,x;
+				gap=1.2*cacheCursorContext.measureText("成交量:"+max).width;
+				x=rightX-gap;
+				cacheCursorContext.font=fontSize+"px Arial";
+				cacheCursorContext.textBaseline="top";
+				cacheCursorContext.textAlign="left";
+				//成交量
+				content="成交量:"+data[cursorIndex][3];
+				cacheCursorContext.fillStyle=kColor[data[cursorIndex].color];
+				cacheCursorContext.fillText(content,x,topY);
+			};
+
 			//显示分时图交易量图十字光标
 			drawCursor=function(x,y){
 				cacheCursorContext.beginPath();
@@ -1761,6 +1821,7 @@
 				cacheCursorContext.moveTo(cursorX,topY);
 				cacheCursorContext.lineTo(cursorX,bottomY);
 				cacheCursorContext.stroke();
+				drawCursorTip();
 			};
 
 			/*
