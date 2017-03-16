@@ -2482,7 +2482,7 @@
 		//方法
 		var queryToken,queryKLine,queryTrend,queryMarketDetail,queryPreclosePx,handleToken,
 			handleKLine,handleTrend,handleMarketDetail,getKLine,setTimer,storeStorage,
-			queryTrend5Day,appendTrend,handleAppend;
+			queryTrend5Day,appendTrend,handleAppend,queryTick;
 		/*
 		 * storage={
 		 * 	code:
@@ -2720,6 +2720,31 @@
 						crc=result.data.trend.crc[code];
 						minTime=data[data.length-1][0].toString().substring(8,12);
 						storeStorage(code,period,"trend",data);
+					}
+				},
+				error:function(error){
+					console.error("queryTrend:",error);
+				}
+			});
+		};
+
+		//分时图明细
+		queryTick=function(){
+			Util.ajax({
+				type:"get",
+				url:"https://open.hscloud.cn/quote/v1/tick",
+				contentType:"application/x-www-form-urlencoded; charset=utf-8",
+				data:{
+					prod_code:storage.code,
+					fields:"hq_px,business_amount",
+					data_count:10
+				},
+				beforeSend: function(request) {
+					request.setRequestHeader("Authorization",authorization);
+				},
+				success:function(result){
+					if(result){
+						console.log(result);
 					}
 				},
 				error:function(error){
