@@ -22,7 +22,7 @@
 		//dom元素
 		var container,realCanvas,cacheCanvas,realContext,cacheContext,pixel,
 			realCursorCanvas,cacheCursorCanvas,realCursorContext,cacheCursorContext,
-			textContainer;
+			textContainer,canvasContainer;
 		//配置变量
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
 			fontSize,maColor,gapOccupy,dayCount,loading,cursorIndex,cursorX;
@@ -56,38 +56,43 @@
 			process=speed;
 			//dom
 			container=document.getElementById("k-container");
-			realCanvas=container.realCanvas || document.createElement("canvas");
-			cacheCanvas=container.cacheCanvas || document.createElement("canvas");
+			canvasContainer=document.createElement("div");
+			canvasContainer.style.float="left";
+			canvasContainer.style.width="100%";
+			canvasContainer.style.height="100%";
+			container.appendChild(canvasContainer);
+			realCanvas=canvasContainer.realCanvas || document.createElement("canvas");
+			cacheCanvas=canvasContainer.cacheCanvas || document.createElement("canvas");
 			realContext=realCanvas.getContext("2d");
 			cacheContext=cacheCanvas.getContext("2d");
 			realCanvas.style.position="absolute";
-			container.appendChild(realCanvas);
+			canvasContainer.appendChild(realCanvas);
 			//十字光标画布
-			realCursorCanvas=container.realCursorCanvas || document.createElement("canvas");
-			cacheCursorCanvas=container.cacheCursorCanvas || document.createElement("canvas");
+			realCursorCanvas=canvasContainer.realCursorCanvas || document.createElement("canvas");
+			cacheCursorCanvas=canvasContainer.cacheCursorCanvas || document.createElement("canvas");
 			realCursorContext=realCursorCanvas.getContext("2d");
 			cacheCursorContext=cacheCursorCanvas.getContext("2d");
 			realCursorCanvas.style.position="absolute";
-			container.appendChild(realCursorCanvas);
+			canvasContainer.appendChild(realCursorCanvas);
 		};
 		initDom();
 		
 		//初始化画布长宽，在页面resize时需要重新执行
 		initCanvas=function(){
 			//避免移动设备screenPixel模糊问题
-			cacheCanvas.width=container.clientWidth*pixel;
-			cacheCanvas.height=container.clientHeight*pixel;
-			realCanvas.width=container.clientWidth*pixel;
-			realCanvas.height=container.clientHeight*pixel;
-			realCanvas.style.width=container.clientWidth+"px";
-			realCanvas.style.height=container.clientHeight+"px";
+			cacheCanvas.width=canvasContainer.clientWidth*pixel;
+			cacheCanvas.height=canvasContainer.clientHeight*pixel;
+			realCanvas.width=canvasContainer.clientWidth*pixel;
+			realCanvas.height=canvasContainer.clientHeight*pixel;
+			realCanvas.style.width=canvasContainer.clientWidth+"px";
+			realCanvas.style.height=canvasContainer.clientHeight+"px";
 			//十字光标画布
-			cacheCursorCanvas.width=container.clientWidth*pixel;
-			cacheCursorCanvas.height=container.clientHeight*pixel;
-			realCursorCanvas.width=container.clientWidth*pixel;
-			realCursorCanvas.height=container.clientHeight*pixel;
-			realCursorCanvas.style.width=container.clientWidth+"px";
-			realCursorCanvas.style.height=container.clientHeight+"px";
+			cacheCursorCanvas.width=canvasContainer.clientWidth*pixel;
+			cacheCursorCanvas.height=canvasContainer.clientHeight*pixel;
+			realCursorCanvas.width=canvasContainer.clientWidth*pixel;
+			realCursorCanvas.height=canvasContainer.clientHeight*pixel;
+			realCursorCanvas.style.width=canvasContainer.clientWidth+"px";
+			realCursorCanvas.style.height=canvasContainer.clientHeight+"px";
 		};
 
 		/*------------------------工具方法---------------------------*/
@@ -1948,14 +1953,16 @@
 				for(i=0,l=temp.length;i<l;i++){
 					color=temp[i].price<wdContent.preclosePx ? "d_color":"z_color";
 					wdTemplate+='<p class="clearfix">'
-						+'<span>买'+i+'</span>'
+						+'<span>买'+(i+1)+'</span>'
 						+'<span class="'+color+'">'+temp[i].price+'</span>'
 						+'<span>'+temp[i].amount+'</span>'
 						+'</p>';
 				}
 				wdTemplate+='</div>';
 				wdContainer.innerHTML=wdTemplate;
-				textContainer.removeChild(mxContainer);
+				if(mxContainer){
+					textContainer.removeChild(mxContainer);
+				}
 				textContainer.appendChild(wdContainer);
 			};
 
@@ -1970,7 +1977,9 @@
 				mxTemplate='';
 
 				mxContainer.innerHTML=mxTemplate;
-				textContainer.removeChild(wdContainer);
+				if(wdContainer){
+					textContainer.removeChild(wdContainer);
+				}
 				textContainer.appendChild(mxContainer);
 			};
 
@@ -1985,6 +1994,7 @@
 			};
 
 			return {
+				init:init,
 				drawWD:drawWD,
 				drawMX:drawMX
 			};
@@ -2321,7 +2331,7 @@
 			hammerPan=new Hammer.Pan();
 			hammerPinch = new Hammer.Pinch();
 			hammerPress=new Hammer.Press();
-			hammerManager=new Hammer.Manager(container);
+			hammerManager=new Hammer.Manager(canvasContainer);
 			hammerManager.add([hammerPan,hammerPinch,hammerPress]);
 
 			//长按
@@ -2426,20 +2436,20 @@
 				hammerManager.on("pinchout",pinchout);
 
 				//鼠标滚动缩放事件
-				container.addEventListener("mousewheel",mousewheel);
+				canvasContainer.addEventListener("mousewheel",mousewheel);
 			};
 
 			//销毁所有已绑定的事件
 			destroy=function(){
 				hammerManager.destroy();
-				hammerManager=new Hammer.Manager(container);
+				hammerManager=new Hammer.Manager(canvasContainer);
 				hammerManager.add([hammerPan,hammerPinch,hammerPress]);
 			};
 
-			//设置container的偏移量，计算坐标点
+			//设置canvasContainer的偏移量，计算坐标点
 			setOffset=function(){
 				var parent;
-				parent=container;
+				parent=canvasContainer;
 				offsetLeft=parent.offsetLeft;
 				offsetTop=parent.offsetTop;
 				while(parent.offsetParent){
@@ -2474,10 +2484,17 @@
 				refreshCursorCache();
 				painterStack.push(trendPainter);
 				painterStack.push(trendBarPainter);
+				canvasContainer.style.width="80%";
+				textContainer.style.display="block";
 			}else if(control==kControl){
 				painterStack.push(candlePainter);
 				painterStack.push(kBarPainter);
 				painterStack.push(extraPainterCollection.MACDPainter);
+				canvasContainer.style.width="100%";
+				textContainer.style.display="none";
+			}
+			if(currControl){
+				resize();
 			}
 			eventControl.destroy();
 			currControl=control;
@@ -2510,18 +2527,18 @@
 
 		//将虚拟画布上的图形刷新到画布上
 		refreshCache=function(){
-			container.removeChild(realCanvas);
+			canvasContainer.removeChild(realCanvas);
 			realContext.clearRect(0,0,realCanvas.width,realCanvas.height);
 			realContext.drawImage(cacheCanvas,0,0);
-			container.appendChild(realCanvas);
+			canvasContainer.appendChild(realCanvas);
 		};
 
 		//十字光标的画布缓冲绘图
 		refreshCursorCache=function(){
-			container.removeChild(realCursorCanvas);
+			canvasContainer.removeChild(realCursorCanvas);
 			realCursorContext.clearRect(0,0,realCursorCanvas.width,realCursorCanvas.height);
 			realCursorContext.drawImage(cacheCursorCanvas,0,0);
-			container.appendChild(realCursorCanvas);
+			canvasContainer.appendChild(realCursorCanvas);
 		};
 
 		//全局初始化，调用各个内部初始化方法，页面就绪即可执行
@@ -2532,6 +2549,7 @@
 			kBarPainter.initSize();
 			trendPainter.initSize();
 			trendBarPainter.initSize();
+			textPainter.init();
 			extraPainterCollection.initSize();
 		};
 		
@@ -2556,7 +2574,7 @@
 			initCanvas();
 			cacheContext.clearRect(0,0,cacheCanvas.width,cacheCanvas.height);
 			for(var i in painterStack){
-				painterStack[i].resizeDraw();
+				//painterStack[i].resizeDraw();
 			}
 			eventControl.resize();
 			refreshCache();

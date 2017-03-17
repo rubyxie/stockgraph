@@ -1,0 +1,173 @@
+html{
+    font-size: 100px;
+}
+
+.clearfix:after {
+    content:".";
+    display:block;
+    height:0;
+    clear:both;
+    visibility:hidden;
+}
+
+.clearfix::before, .clearfix::after {
+    display:table;
+    content:"";
+    line-height:0;
+}
+
+.wdmx {
+    width:18%;
+    height:100%;
+    float:right;
+    /*position:relative;
+    right:0;
+    top:0;*/
+}
+
+/*--------------五档/明细按钮-------------*/
+.wdmx_tab {
+    height:7%;
+    line-height:0.2rem;
+    font-size: 0.2rem;
+    margin-left:0.1rem;
+}
+
+.wdmx_tab li{
+    float:left;
+    width:40%;
+    height:100%;
+    line-height:0.2rem;
+    text-align:center;
+}
+
+.wdmx_tab li:first-child{
+    margin-right:10%;
+}
+
+.wdmx_tab li a {
+    display:block;
+    color:#666;
+    height:20px;
+    line-height:0.2rem;
+}
+
+.wdmx_tab li.active a {
+    color: #4a90e2;
+    border-bottom: 1px solid #4a90e2;
+}
+
+/*-----------------五档买卖----------------*/
+.wd_mm {
+    margin-top: 2%;
+    font-size: 0.2rem;
+    height:91%;
+}
+
+.wd_mm p {
+    line-height:0.2rem;
+    margin-bottom:2%;
+    height:18%
+}
+
+.wd_mm span {
+    display: block;
+    float: left;
+}
+
+.wd_mm span:first-child {
+    width: 20%;
+    margin-right: 5%;
+}
+
+.wd_mm span:nth-child(2) {
+    text-align:center;
+    width: 40%;
+    margin-right: 5%;
+}
+
+.wd_mm span:nth-child(3) {
+    width: 30%;
+    text-align: right;
+}
+
+.wd_mm span.z_color {
+    color: #e73146;
+}
+
+.wd_mm span.d_color {
+    color: #2db955;
+}
+
+.wd_buy {
+    position: relative;
+    height: 49%;
+}
+
+.wd_buy:before {
+    position: absolute;
+    bottom: 0px;
+    left: 0;
+    content: ' ';
+    width: 100%;
+    height: 1px;
+    border-bottom: 1px solid #e2e7ee;
+    transform: scaleY(0.5);
+}
+
+.wd_sell {
+    margin-top: 2%;
+    height:49%;
+}
+
+/*------------------明细---------------*/
+.wd_mx {
+    margin-top: 2%;
+    font-size: 0.2rem;
+    height:91%;
+}
+
+.mx_wrap{
+    position:relative;
+    height:100%;
+}
+
+.mx_wrap p{
+    height:9%;
+    line-height:0.2rem;
+    margin-bottom:1%;
+}
+
+.wd_mx span {
+    display: block;
+    float: left;
+}
+
+.wd_mx span.time {
+    font-size: 0.15rem; color: #999;
+}
+
+.wd_mx span:first-child{
+    width:20%;
+    margin-right:5%;
+}
+
+.wd_mx span:nth-child(2) {
+    width:40%;
+    margin-right:5%;
+    text-align: center;
+}
+
+.wd_mx span:nth-child(3) {
+    min-width:30%;
+    text-align: right;
+    color: #666;
+}
+
+.wd_mx span.z_color {
+    color: #e73146;
+}
+
+.wd_mx span.d_color {
+    color: #2db955;
+}
