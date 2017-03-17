@@ -21,7 +21,8 @@
 	KPainter=(function(){
 		//dom元素
 		var container,realCanvas,cacheCanvas,realContext,cacheContext,pixel,
-			realCursorCanvas,cacheCursorCanvas,realCursorContext,cacheCursorContext;
+			realCursorCanvas,cacheCursorCanvas,realCursorContext,cacheCursorContext,
+			textContainer;
 		//配置变量
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
 			fontSize,maColor,gapOccupy,dayCount,loading,cursorIndex,cursorX;
@@ -1881,41 +1882,111 @@
 		 */
 		textPainter=(function(){
 			//变量
-			var data,wrapTemplate,wdTemplate,mxTemplate;
+			var data,buttonTemplate,wdContainer,mxContainer;
 			//方法
-			var fillWDTemplate,fillMXTemplate;
+			var fillWDTemplate,fillMXTemplate,drawWD,drawMX,init,bindListener;
 
-			//外部包裹的div
-			wrapTemplate='<div class="wdmx">'
-							+'<ul class="wdmx_tab clearfix">'
-								+'<li>'
-									+'<a id="stockgraph-wd" href="javascript:void(0)">五档</a>'
-								+'</li>'
-								+'<li>'
-									+'<a id="stockgraph-mx" href="javascript:void(0)">明细</a>'
-								+'</li>'
-							+'</ul>'
-						+'</div>';
+			//初始化text容器，加入dom树，display=none
+			init=function(){
+				//外部包裹的div
+				buttonTemplate='<ul class="wdmx_tab clearfix">'
+									+'<li>'
+										+'<a id="stockgraph-wd" href="javascript:void(0)">五档</a>'
+									+'</li>'
+									+'<li>'
+										+'<a id="stockgraph-mx" href="javascript:void(0)">明细</a>'
+									+'</li>'
+								+'</ul>';
+				textContainer=document.createElement("div");
+				textContainer.className="wdmx";
+				textContainer.style.display="none";
+				textContainer.innerHTML=buttonTemplate;
+				container.appendChild(textContainer);
+			};
+
+			//绑定监听
+			bindListener=function(){
+				var wd=document.getElementById("wd");
+				var mx=document.getElementById("mx");
+				wd.addEventListener("click",function(){
+					document.querySelector(".wd_mm").style.display="block";
+					wd.parentNode.className="active";
+					document.querySelector(".wd_mx").style.display="none";
+					mx.parentNode.className="";
+				});
+				mx.addEventListener("click",function(){
+					document.querySelector(".wd_mm").style.display="none";
+					wd.parentNode.className="";
+					document.querySelector(".wd_mx").style.display="block";
+					mx.parentNode.className="active";
+				});
+			};
 
 			/*
 			 * 填充五档模板
 			 */
 			fillWDTemplate=function(wdContent){
-				var contentTemplate,i,l;
-				//五档头部
-				wdTemplate='<div class="wd_mm">';
+				var wdTemplate,i,l,color,temp;
+				//五档容器
+				wdContainer=document.createElement("div");
+				wdContainer.className="wd_mm";
 				//卖1-卖5
-				contentTemplate='<div class="wd_buy">';
-				for(i=0,l=wdContent.length;i<l;i++){
-
+				wdTemplate='<div class="wd_buy">';
+				temp=wdContent.bid;
+				for(i=0,l=temp.length;i<l;i++){
+					color=temp[i].price<wdContent.preclosePx ? "d_color":"z_color";
+					wdTemplate+='<p class="clearfix">'
+										+'<span>卖'+(5-i)+'</span>'
+										+'<span class="'+color+'">'+temp[i].price+'</span>'
+										+'<span>'+temp[i].amount+'</span>'
+									+'</p>';
 				}
+				wdTemplate+='</div>';
+				//买1-买5
+				wdTemplate+='<div class="wd_sell">';
+				temp=wdContent.offer;
+				for(i=0,l=temp.length;i<l;i++){
+					color=temp[i].price<wdContent.preclosePx ? "d_color":"z_color";
+					wdTemplate+='<p class="clearfix">'
+						+'<span>买'+i+'</span>'
+						+'<span class="'+color+'">'+temp[i].price+'</span>'
+						+'<span>'+temp[i].amount+'</span>'
+						+'</p>';
+				}
+				wdTemplate+='</div>';
+				wdContainer.innerHTML=wdTemplate;
+				textContainer.removeChild(mxContainer);
+				textContainer.appendChild(wdContainer);
 			};
 
 			/*
 			 * 填充明细模板
 			 */
 			fillMXTemplate=function(mxContent){
+				var i,l,color,temp,mxTemplate;
+				//五档容器
+				mxContainer=document.createElement("div");
+				mxContainer.className="wd_mx";
+				mxTemplate='';
 
+				mxContainer.innerHTML=mxTemplate;
+				textContainer.removeChild(wdContainer);
+				textContainer.appendChild(mxContainer);
+			};
+
+			//绘制五档
+			drawWD=function(content){
+				fillWDTemplate(content);
+			};
+
+			//绘制明细
+			drawMX=function(content){
+				fillMXTemplate(content);
+			};
+
+			return {
+				drawWD:drawWD,
+				drawMX:drawMX
 			};
 		})();
 
@@ -2512,7 +2583,8 @@
 			init:init,
 			draw:draw,
 			resize:resize,
-			showLoading:showLoading
+			showLoading:showLoading,
+			textPainter:textPainter
 		};
 	})();
 
@@ -2634,9 +2706,37 @@
 			KPainter.draw(storage.trend,storage.period);
 		};
 
-		//处理五档数据
+		/*
+		 * 处理五档数据
+		 * bid为正序，显示在下，卖5-卖1
+		 * offer为逆序，显示在上，买1-买5
+		 */
 		handleWD=function(data){
-			var content;
+			var content,temp,i,l,position,per;
+			per=data[1];
+			content={bid:[],offer:[]};
+			l=5;
+			//bid
+			temp=data[2];
+			temp=temp.split(",");
+			for(i=l-1;i>=0;i--){
+				position=i*3;
+				content.bid.push({
+					price:temp[position],
+					amount:Math.round(temp[position+1]/per)
+				});
+			}
+			//offer
+			temp=data[3];
+			temp=temp.split(",");
+			for(i=0;i<l;i++){
+				position=i*3;
+				content.offer.push({
+					price:temp[position],
+					amount:Math.round(temp[position+1]/per)
+				});
+			}
+			KPainter.textPainter.drawWD(content);
 		};
 
 		//处理明细数据
