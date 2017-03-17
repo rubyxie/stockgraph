@@ -2522,6 +2522,10 @@
 					minutes="0"+minutes;
 				}
 				now=parseInt(now.getHours()+""+minutes);
+				//开盘前刷新昨收价
+				if(now>storage.marketDetail[i].open_time-10 && now<storage.marketDetail[i].open_time){
+					queryPreclosePx(storage.code,storage.period,true);
+				}
 				for(i=0,l=storage.marketDetail.length;i<l;i++){
 					if(now>=storage.marketDetail[i].open_time && now<=storage.marketDetail[i].close_time){
 						appendTrend();
@@ -2559,7 +2563,7 @@
 				//开盘清数据
 				if(now==storage.marketDetail[0].open_time){
 					storage.trend=[];
-					storage.trend.preclosePx=storage.preclosePx;
+					storage.trend.preclosePx=storage.newPreclosePx;
 					storage.trend.marketDetail=storage.marketDetail;
 					storage.trend.lastData=[0,0,0,0];
 				}
@@ -2841,7 +2845,7 @@
 		};
 
 		//获取昨收价
-		queryPreclosePx=function(code,period){
+		queryPreclosePx=function(code,period,refreshNew){
 			var dataAcount;
 			dataAcount=period==10 ? 2:6;
 			Util.ajax({
@@ -2861,7 +2865,11 @@
 				success:function(result){
 					if(result){
 						if(code==storage.code){
-							storeStorage(code,period,"preclosePx",result.data.candle[code][0][1]);
+							if(refreshNew){
+								storeStorage(code,period,"newPreclosePx",result.data.candle[code][0][1]);
+							}else{
+								storeStorage(code,period,"preclosePx",result.data.candle[code][0][1]);
+							}
 						}
 					}
 				},
