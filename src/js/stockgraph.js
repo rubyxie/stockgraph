@@ -29,7 +29,7 @@
 		var init,draw,resize,refreshCache,candlePainter,kBarPainter,trendBarPainter,
 			kControl,trendControl,refreshCursorCache,trendPainter,initDom,initCanvas,
 			animate,painterTool,eventControl,currControl,triggerControl,showLoading,
-			extraPainterCollection;
+			extraPainterCollection,textPainter;
 
 		//初始化dom元素，仅需执行一次
 		initDom=function(){
@@ -1877,6 +1877,49 @@
 		})();
 
 		/*
+		 * 分时图五档/明细管理器
+		 */
+		textPainter=(function(){
+			//变量
+			var data,wrapTemplate,wdTemplate,mxTemplate;
+			//方法
+			var fillWDTemplate,fillMXTemplate;
+
+			//外部包裹的div
+			wrapTemplate='<div class="wdmx">'
+							+'<ul class="wdmx_tab clearfix">'
+								+'<li>'
+									+'<a id="stockgraph-wd" href="javascript:void(0)">五档</a>'
+								+'</li>'
+								+'<li>'
+									+'<a id="stockgraph-mx" href="javascript:void(0)">明细</a>'
+								+'</li>'
+							+'</ul>'
+						+'</div>';
+
+			/*
+			 * 填充五档模板
+			 */
+			fillWDTemplate=function(wdContent){
+				var contentTemplate,i,l;
+				//五档头部
+				wdTemplate='<div class="wd_mm">';
+				//卖1-卖5
+				contentTemplate='<div class="wd_buy">';
+				for(i=0,l=wdContent.length;i<l;i++){
+
+				}
+			};
+
+			/*
+			 * 填充明细模板
+			 */
+			fillMXTemplate=function(mxContent){
+
+			};
+		})();
+
+		/*
 		 * 【K线蜡烛图、交易量柱图、MACD指标图】事件控制器，左右滑动、缩放事件、十字光标
 		 */
 		kControl=(function(){
@@ -2478,11 +2521,12 @@
 	 */
 	requestDispatcher=(function(){
 		//变量
-		var authorization,storage,supportType,crc,minTime,trendTimer;
+		var authorization,storage,supportType,crc,minTime,trendTimer,textType;
 		//方法
 		var queryToken,queryKLine,queryTrend,queryMarketDetail,queryPreclosePx,handleToken,
 			handleKLine,handleTrend,handleMarketDetail,getKLine,setTimer,storeStorage,
-			queryTrend5Day,appendTrend,handleAppend,queryTick;
+			queryTrend5Day,appendTrend,handleAppend,queryTick,queryReal,appendText,
+			handleText,handleWD,handleMX;
 		/*
 		 * storage={
 		 * 	code:
@@ -2493,6 +2537,8 @@
 		 * }
 		 */
 		storage={};
+		//五档/明细
+		textType=["wd","mx"];
 		supportType={
 			"1分钟":1,
 			"5分钟":2,
@@ -2523,12 +2569,13 @@
 				}
 				now=parseInt(now.getHours()+""+minutes);
 				//开盘前刷新昨收价
-				if(now>storage.marketDetail[i].open_time-10 && now<storage.marketDetail[i].open_time){
-					queryPreclosePx(storage.code,storage.period,true);
+				if(now>storage.marketDetail[0].open_time-10 && now<storage.marketDetail[0].open_time){
+					queryPreclosePx(storage.code,storage.period);
 				}
 				for(i=0,l=storage.marketDetail.length;i<l;i++){
 					if(now>=storage.marketDetail[i].open_time && now<=storage.marketDetail[i].close_time){
 						appendTrend();
+						appendText(storage.text);
 					}
 				}
 			},6000);
@@ -2563,7 +2610,7 @@
 				//开盘清数据
 				if(now==storage.marketDetail[0].open_time){
 					storage.trend=[];
-					storage.trend.preclosePx=storage.newPreclosePx;
+					storage.trend.preclosePx=storage.preclosePx;
 					storage.trend.marketDetail=storage.marketDetail;
 					storage.trend.lastData=[0,0,0,0];
 				}
@@ -2585,6 +2632,28 @@
 				storage.trend.push(data[l]);
 			}
 			KPainter.draw(storage.trend,storage.period);
+		};
+
+		//处理五档数据
+		handleWD=function(data){
+			var content;
+		};
+
+		//处理明细数据
+		handleMX=function(data){
+
+		};
+
+		//处理五档/明细
+		handleText=function(code,text,data){
+			if(code!=storage.code || text!=storage.text){
+				return ;
+			}
+			if(text==textType[0]){
+				handleWD(data);
+			}else if(text==textType[1]){
+				handleMX(data);
+			}
 		};
 
 		//校验code,period是否正确，执行蜡烛绘图方法
@@ -2659,6 +2728,8 @@
 						queryMarketDetail(storage.code,storage.period);
 						queryTrend(storage.code,storage.period);
 						queryPreclosePx(storage.code,storage.period);
+						storage.text=textType[0];
+						appendText(storage.code,storage.text);
 						setTimer();
 						break;
 					case 11:
@@ -2666,6 +2737,8 @@
 						queryMarketDetail(storage.code,storage.period);
 						queryTrend5Day(storage.code,storage.period);
 						queryPreclosePx(storage.code,storage.period);
+						storage.text=textType[0];
+						appendText(storage.code,storage.text);
 						setTimer();
 						break;
 					default:
@@ -2732,8 +2805,33 @@
 			});
 		};
 
+		//分时图五档
+		queryReal=function(code,text){
+			Util.ajax({
+				type:"get",
+				url:"https://open.hscloud.cn/quote/v1/real",
+				contentType:"application/x-www-form-urlencoded; charset=utf-8",
+				data:{
+					en_prod_code:storage.code,
+					fields:"bid_grp,offer_grp"
+				},
+				beforeSend: function(request) {
+					request.setRequestHeader("Authorization",authorization);
+				},
+				success:function(result){
+					if(result){
+						console.log(result);
+						handleText(code,text,result.data.snapshot[code]);
+					}
+				},
+				error:function(error){
+					console.error("queryReal:",error);
+				}
+			});
+		};
+
 		//分时图明细
-		queryTick=function(){
+		queryTick=function(code,text){
 			Util.ajax({
 				type:"get",
 				url:"https://open.hscloud.cn/quote/v1/tick",
@@ -2752,7 +2850,7 @@
 					}
 				},
 				error:function(error){
-					console.error("queryTrend:",error);
+					console.error("queryTick:",error);
 				}
 			});
 		};
@@ -2785,6 +2883,15 @@
 					console.error("appendTrend:",error);
 				}
 			});
+		};
+
+		//定时刷新五档/明细的内容
+		appendText=function(code,text){
+			if(text==textType[0]){
+				queryReal(code,text);
+			}else if(text==textType[1]){
+				queryTick(code,text);
+			}
 		};
 
 		//获取openapi五日分时数据
@@ -2845,7 +2952,7 @@
 		};
 
 		//获取昨收价
-		queryPreclosePx=function(code,period,refreshNew){
+		queryPreclosePx=function(code,period){
 			var dataAcount;
 			dataAcount=period==10 ? 2:6;
 			Util.ajax({
@@ -2865,11 +2972,12 @@
 				success:function(result){
 					if(result){
 						if(code==storage.code){
-							if(refreshNew){
+							/*if(refreshNew){
 								storeStorage(code,period,"newPreclosePx",result.data.candle[code][0][1]);
 							}else{
 								storeStorage(code,period,"preclosePx",result.data.candle[code][0][1]);
-							}
+							}*/
+							storeStorage(code,period,"preclosePx",result.data.candle[code][0][1]);
 						}
 					}
 				},
@@ -2928,8 +3036,22 @@
 			}
 		};
 
+		//切换到查询五档
+		getWD=function(){
+			storage.text=textType[0];
+			appendText(storage.code,storage.text);
+		};
+
+		//切换到查询明细
+		getMX=function(){
+			storage.text=textType[1];
+			appendText(storage.code,storage.text);
+		};
+
 		return {
-			getKLine:getKLine
+			getKLine:getKLine,
+			getWD:getWD,
+			getMX:getMX
 		};
 	})();
 
