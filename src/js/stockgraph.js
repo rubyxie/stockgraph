@@ -218,6 +218,7 @@
 				//计算坐标点
 				calcAxis=function(){
 					var i;
+					middleY=topY+height/2;
 					max=min=0;
 					for(i=start;i<end;i++){
 						if(max<dif[i].data){
@@ -278,7 +279,6 @@
 					}
 					data.MACD=true;
 					calcData();
-					middleY=topY+height/2;
 				};
 
 				//绘制MACD柱
@@ -430,6 +430,7 @@
 				};
 
 				return {
+					initSize:initSize,
 					drawReady:drawReady,
 					drawFrame:drawFrame,
 					resizeDraw:resizeDraw,
@@ -474,6 +475,8 @@
 			//计算y坐标值
 			calcAxis=function(){
 				var i,j,k;
+				kWidth=width*(1-gapOccupy)/amount;
+				gapWidth=width*gapOccupy/(amount+1);
 				for(i=start;i<end;i++){
 					//蜡烛坐标计算，[开盘价，最高价，最低价，收盘价，中点]y坐标
 					data[i].axis=[];
@@ -497,8 +500,6 @@
 			handleData=function(){
 				var i,j,temp;
 				amount=end-start;
-				kWidth=width*(1-gapOccupy)/amount;
-				gapWidth=width*gapOccupy/(amount+1);
 				//处理ma头尾补图形引起的作用于变化问题
 				max=data[start][2];
 				min=data[start][3];
@@ -1159,6 +1160,9 @@
 			//计算分时图坐标点
 			calcAxis=function(){
 				var i,j,k;
+				//分时图的成交量图头尾都为半根
+				kWidth=width*(1-gapOccupy)/amount;
+				gapWidth=width*gapOccupy/amount;
 				for(i=start;i<end;i++){
 					data[i].axis=topY+height*(max-data[i][1])/range;
 					data[i].avgAxis=topY+height*(max-data[i][2])/range;
@@ -1169,9 +1173,6 @@
 			handleData=function(){
 				var i,l;
 				amount=marketDetail.amount;
-				//分时图的成交量图头尾都为半根
-				kWidth=width*(1-gapOccupy)/amount;
-				gapWidth=width*gapOccupy/amount;
 				middle=data.preclosePx;
 				max=min=middle;
 				//for(i=0,l=data.length;i<l;i++){
@@ -1295,9 +1296,13 @@
 				}
 				//---绘制渐变阴影
 				cacheContext.beginPath();
-				gradient=cacheContext.createLinearGradient(leftX,topY+height*(max-valueMax)/range,leftX,bottomY);
-				gradient.addColorStop(0.45,"#c2deff");
-				gradient.addColorStop(1,"rgba(255,255,255,0)");
+				try{
+					gradient=cacheContext.createLinearGradient(leftX,topY+height*(max-valueMax)/range,leftX,bottomY);
+					gradient.addColorStop(0.45,"#c2deff");
+					gradient.addColorStop(1,"rgba(255,255,255,0)");
+				}catch(e){
+					console.log("openapiError:",e);
+				}
 				cacheContext.fillStyle=gradient;
 				cacheContext.moveTo(leftX,bottomY);
 				trendX=leftX;
@@ -1455,7 +1460,9 @@
 				if(trendX>rightX){
 					trendX=rightX;
 				}
-				cacheContext.lineTo(trendX,data[i].avgAxis);
+				if(i%amount!=0) {
+					cacheContext.lineTo(trendX, data[i].avgAxis);
+				}
 				cacheContext.stroke();
 			};
 
@@ -1895,11 +1902,11 @@
 			init=function(){
 				//外部包裹的div
 				buttonTemplate='<ul class="wdmx_tab clearfix">'
-									+'<li>'
-										+'<a id="stockgraph-wd" href="javascript:void(0)">五档</a>'
+									+'<li id="stockgraph-wd" class="active">'
+										+'<a href="javascript:void(0)">五档</a>'
 									+'</li>'
-									+'<li>'
-										+'<a id="stockgraph-mx" href="javascript:void(0)">明细</a>'
+									+'<li id="stockgraph-mx">'
+										+'<a href="javascript:void(0)">明细</a href="javascript:void(0)">'
 									+'</li>'
 								+'</ul>';
 				textContainer=document.createElement("div");
@@ -1907,23 +1914,32 @@
 				textContainer.style.display="none";
 				textContainer.innerHTML=buttonTemplate;
 				container.appendChild(textContainer);
+				//五档容器
+				wdContainer=document.createElement("div");
+				wdContainer.className="wd_mm";
+				//明细容器
+				mxContainer=document.createElement("div");
+				mxContainer.className="wd_mx";
+				//绑定切换事件
+				bindListener();
 			};
 
 			//绑定监听
 			bindListener=function(){
-				var wd=document.getElementById("wd");
-				var mx=document.getElementById("mx");
-				wd.addEventListener("click",function(){
-					document.querySelector(".wd_mm").style.display="block";
-					wd.parentNode.className="active";
-					document.querySelector(".wd_mx").style.display="none";
-					mx.parentNode.className="";
+				var wdBtn,mxBtn;
+				wdBtn=document.getElementById("stockgraph-wd");
+				mxBtn=document.getElementById("stockgraph-mx");
+				wdBtn.addEventListener("click",function(){
+					wdContainer.style.display="block";
+					wdBtn.className="active";
+					mxContainer.style.display="none";
+					mxBtn.className="";
 				});
-				mx.addEventListener("click",function(){
-					document.querySelector(".wd_mm").style.display="none";
-					wd.parentNode.className="";
-					document.querySelector(".wd_mx").style.display="block";
-					mx.parentNode.className="active";
+				mxBtn.addEventListener("click",function(){
+					wdContainer.style.display="none";
+					wdBtn.className="";
+					mxContainer.style.display="block";
+					mxBtn.className="active";
 				});
 			};
 
@@ -1932,9 +1948,6 @@
 			 */
 			fillWDTemplate=function(wdContent){
 				var wdTemplate,i,l,color,temp;
-				//五档容器
-				wdContainer=document.createElement("div");
-				wdContainer.className="wd_mm";
 				//卖1-卖5
 				wdTemplate='<div class="wd_buy">';
 				temp=wdContent.bid;
@@ -1960,7 +1973,7 @@
 				}
 				wdTemplate+='</div>';
 				wdContainer.innerHTML=wdTemplate;
-				if(mxContainer){
+				if(textContainer.contains(mxContainer)){
 					textContainer.removeChild(mxContainer);
 				}
 				textContainer.appendChild(wdContainer);
@@ -1971,13 +1984,10 @@
 			 */
 			fillMXTemplate=function(mxContent){
 				var i,l,color,temp,mxTemplate;
-				//五档容器
-				mxContainer=document.createElement("div");
-				mxContainer.className="wd_mx";
 				mxTemplate='';
 
 				mxContainer.innerHTML=mxTemplate;
-				if(wdContainer){
+				if(textContainer.contains(wdContainer)){
 					textContainer.removeChild(wdContainer);
 				}
 				textContainer.appendChild(mxContainer);
@@ -2009,7 +2019,7 @@
 				currPosition,data;
 			//方法
 			var init,draw,enlarge,narrow,scrollRight,scrollLeft,
-				calcMA,calcColor,showCursor,clearCursor;
+				calcMA,calcColor,showCursor,clearCursor,resize;
 			//固定变量
 			scaleStep=1;
 			scrollStep=1;
@@ -2094,6 +2104,13 @@
 				draw();
 			};
 
+			//切换K线图种类时重新计算长宽
+			resize=function(){
+				for(var i in painterStack){
+					painterStack[i].initSize();;
+				}
+			};
+
 			//放大-减少显示条数
 			enlarge=function(){
 				if(currScale>minScale){
@@ -2151,6 +2168,7 @@
 
 			return {
 				init:init,
+				resize:resize,
 				enlarge:enlarge,
 				narrow:narrow,
 				scrollLeft:scrollLeft,
@@ -2169,7 +2187,7 @@
 				currPosition,data;
 			//方法
 			var init,draw,enlarge,narrow,scrollRight,scrollLeft,calcColor,
-				calcBusinessAmount,showCursor,clearCursor;
+				calcBusinessAmount,showCursor,clearCursor,resize;
 			//固定变量
 			scaleStep=5;
 			scrollStep=2;
@@ -2250,6 +2268,13 @@
 				draw();
 			};
 
+			//切换K线图种类时重新计算长宽
+			resize=function(){
+				for(var i in painterStack){
+					painterStack[i].initSize();;
+				}
+			};
+
 			//放大-减少显示条数
 			enlarge=function(){
 				if(currScale>minScale){
@@ -2307,6 +2332,7 @@
 
 			return {
 				init:init,
+				resize:resize,
 				enlarge:enlarge,
 				narrow:narrow,
 				scrollLeft:scrollLeft,
@@ -2493,12 +2519,19 @@
 				canvasContainer.style.width="100%";
 				textContainer.style.display="none";
 			}
-			if(currControl){
-				resize();
-			}
+			//销毁上一个K线图的监听事件
 			eventControl.destroy();
+			//切换K线图控制器
 			currControl=control;
+			//重设画布长宽
+			initCanvas();
+			//重新计算事件坐标的偏移量
+			eventControl.resize();
+			//重新计算每个绘图器内部长宽边界
+			currControl.resize();
+			//绑定触控事件
 			eventControl.bindListener();
+			//开始绘制
 			currControl.init();
 		};
 
@@ -2574,7 +2607,8 @@
 			initCanvas();
 			cacheContext.clearRect(0,0,cacheCanvas.width,cacheCanvas.height);
 			for(var i in painterStack){
-				//painterStack[i].resizeDraw();
+				painterStack[i].resizeDraw();
+				refreshCache();
 			}
 			eventControl.resize();
 			refreshCache();
@@ -2660,10 +2694,11 @@
 				now=parseInt(now.getHours()+""+minutes);
 				//开盘前刷新昨收价
 				if(now>storage.marketDetail[0].open_time-10 && now<storage.marketDetail[0].open_time){
-					queryPreclosePx(storage.code,storage.period);
+					queryPreclosePx(storage.code,storage.period,true);
 				}
 				for(i=0,l=storage.marketDetail.length;i<l;i++){
-					if(now>=storage.marketDetail[i].open_time && now<=storage.marketDetail[i].close_time){
+					//后台部分接口数据有时间差，前后取缓冲时间
+					if(now>=storage.marketDetail[i].open_time-5 && now<=storage.marketDetail[i].close_time+10){
 						appendTrend();
 						appendText(storage.text);
 					}
@@ -2913,7 +2948,11 @@
 					if(result){
 						var data=result.data.trend[code];
 						crc=result.data.trend.crc[code];
-						minTime=data[data.length-1][0].toString().substring(8,12);
+						try{
+							minTime=data[data.length-1][0].toString().substring(8,12);
+						}catch(e){
+							console.log("openapiError:",e);
+						}
 						storeStorage(code,period,"trend",data);
 					}
 				},
@@ -2938,7 +2977,6 @@
 				},
 				success:function(result){
 					if(result){
-						console.log(result);
 						handleText(code,text,result.data.snapshot[code]);
 					}
 				},
@@ -3070,7 +3108,7 @@
 		};
 
 		//获取昨收价
-		queryPreclosePx=function(code,period){
+		queryPreclosePx=function(code,period,refreshNew){
 			var dataAcount;
 			dataAcount=period==10 ? 2:6;
 			Util.ajax({
@@ -3090,12 +3128,11 @@
 				success:function(result){
 					if(result){
 						if(code==storage.code){
-							/*if(refreshNew){
-								storeStorage(code,period,"newPreclosePx",result.data.candle[code][0][1]);
+							if(refreshNew){
+								storage.preclosePx=result.data.candle[code][0][1];
 							}else{
 								storeStorage(code,period,"preclosePx",result.data.candle[code][0][1]);
-							}*/
-							storeStorage(code,period,"preclosePx",result.data.candle[code][0][1]);
+							}
 						}
 					}
 				},
@@ -3177,11 +3214,20 @@
 	 * 页面控制器，管理页面启动，页面重置等页面级逻辑
 	 */
 	pageControl=(function(){
-		var beginPage;
+		//方法
+		var beginPage,bindListener;
 
 		//页面启动逻辑
 		beginPage=function(){
 			KPainter.init();
+			bindListener();
+		};
+
+		//页面重置
+		bindListener=function(){
+			window.addEventListener("resize",function(){
+				KPainter.resize();
+			});
 		};
 
 		return {
