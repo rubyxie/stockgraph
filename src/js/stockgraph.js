@@ -1891,10 +1891,11 @@
 
 		/*
 		 * 分时图五档/明细管理器
+		 * 分时图五档明细采取节省流量的策略，展示什么刷新什么，因此会看到切换闪烁
 		 */
 		textPainter=(function(){
 			//变量
-			var data,buttonTemplate,wdContainer,mxContainer;
+			var wdContent,mxContent,buttonTemplate,wdContainer,mxContainer;
 			//方法
 			var fillWDTemplate,fillMXTemplate,drawWD,drawMX,init,bindListener;
 
@@ -1934,42 +1935,51 @@
 					wdBtn.className="active";
 					mxContainer.style.display="none";
 					mxBtn.className="";
+					if(wdContent!=undefined){
+						fillWDTemplate(wdContent);
+					}
+					requestDispatcher.getWD();
 				});
 				mxBtn.addEventListener("click",function(){
 					wdContainer.style.display="none";
 					wdBtn.className="";
 					mxContainer.style.display="block";
 					mxBtn.className="active";
+					if(mxContent!=undefined){
+						fillMXTemplate(mxContent);
+					}
+					requestDispatcher.getMX();
 				});
 			};
 
 			/*
 			 * 填充五档模板
 			 */
-			fillWDTemplate=function(wdContent){
+			fillWDTemplate=function(data){
 				var wdTemplate,i,l,color,temp;
 				//卖1-卖5
 				wdTemplate='<div class="wd_buy">';
-				temp=wdContent.bid;
+				temp=data.offer;
 				for(i=0,l=temp.length;i<l;i++){
-					color=temp[i].price<wdContent.preclosePx ? "d_color":"z_color";
+					color=temp[i].price<data.preclosePx ? "d_color":"z_color";
+					console.log(temp[i].price,data.preclosePx,color);
 					wdTemplate+='<p class="clearfix">'
-										+'<span>卖'+(5-i)+'</span>'
-										+'<span class="'+color+'">'+temp[i].price+'</span>'
-										+'<span>'+temp[i].amount+'</span>'
-									+'</p>';
+									+'<span>卖'+(5-i)+'</span>'
+									+'<span class="'+color+'">'+temp[i].price+'</span>'
+									+'<span>'+temp[i].amount+'</span>'
+								+'</p>';
 				}
 				wdTemplate+='</div>';
 				//买1-买5
 				wdTemplate+='<div class="wd_sell">';
-				temp=wdContent.offer;
+				temp=data.bid;
 				for(i=0,l=temp.length;i<l;i++){
-					color=temp[i].price<wdContent.preclosePx ? "d_color":"z_color";
+					color=temp[i].price<data.preclosePx ? "d_color":"z_color";
 					wdTemplate+='<p class="clearfix">'
-						+'<span>买'+(i+1)+'</span>'
-						+'<span class="'+color+'">'+temp[i].price+'</span>'
-						+'<span>'+temp[i].amount+'</span>'
-						+'</p>';
+									+'<span>买'+(i+1)+'</span>'
+									+'<span class="'+color+'">'+temp[i].price+'</span>'
+									+'<span>'+temp[i].amount+'</span>'
+								+'</p>';
 				}
 				wdTemplate+='</div>';
 				wdContainer.innerHTML=wdTemplate;
@@ -1982,10 +1992,18 @@
 			/*
 			 * 填充明细模板
 			 */
-			fillMXTemplate=function(mxContent){
-				var i,l,color,temp,mxTemplate;
-				mxTemplate='';
-
+			fillMXTemplate=function(data){
+				var i,l,color,mxTemplate;
+				mxTemplate='<div class="mx_wrap">';
+				for(i=0,l=data.length;i<l;i++){
+					color=data[i].price<data.preclosePx ? "d_color":"z_color";
+					mxTemplate+='<p>'
+									+'<span class="time">'+data[i].time+'</span>'
+									+'<span class="'+color+'">'+data[i].price+'</span>'
+									+'<span>'+data[i].amount+'</span>'
+								+'</p>';
+				}
+				mxTemplate+='</div>';
 				mxContainer.innerHTML=mxTemplate;
 				if(textContainer.contains(wdContainer)){
 					textContainer.removeChild(wdContainer);
@@ -1995,11 +2013,13 @@
 
 			//绘制五档
 			drawWD=function(content){
+				wdContent=content;
 				fillWDTemplate(content);
 			};
 
 			//绘制明细
 			drawMX=function(content){
+				mxContent=content;
 				fillMXTemplate(content);
 			};
 
@@ -2700,7 +2720,7 @@
 					//后台部分接口数据有时间差，前后取缓冲时间
 					if(now>=storage.marketDetail[i].open_time-5 && now<=storage.marketDetail[i].close_time+10){
 						appendTrend();
-						appendText(storage.text);
+						appendText(storage.code,storage.text);
 					}
 				}
 			},6000);
@@ -2761,8 +2781,8 @@
 
 		/*
 		 * 处理五档数据
-		 * bid为正序，显示在下，卖5-卖1
-		 * offer为逆序，显示在上，买1-买5
+		 * offer为逆序，显示在上，卖5-卖1
+		 * bid为正序，显示在下，买1-买5
 		 */
 		handleWD=function(data){
 			var content,temp,i,l,position,per;
@@ -2772,41 +2792,69 @@
 			//bid
 			temp=data[2];
 			temp=temp.split(",");
-			for(i=l-1;i>=0;i--){
+			for(i=0;i<l;i++){
 				position=i*3;
 				content.bid.push({
-					price:temp[position],
+					price:+temp[position],
 					amount:Math.round(temp[position+1]/per)
 				});
 			}
 			//offer
 			temp=data[3];
 			temp=temp.split(",");
-			for(i=0;i<l;i++){
+			for(i=l-1;i>=0;i--){
 				position=i*3;
 				content.offer.push({
-					price:temp[position],
+					price:+temp[position],
 					amount:Math.round(temp[position+1]/per)
 				});
 			}
+			//昨收
+			content.preclosePx=storage.preclosePx;
 			KPainter.textPainter.drawWD(content);
+			//保存每手股数，供明细使用
+			storage.per=per;
 		};
 
-		//处理明细数据
+		/*
+		 * 处理明细数据
+		 * 生成一个对象数组，供textPainter使用
+		 */
 		handleMX=function(data){
-
+			var content,i,l,time,length;
+			content=[];
+			for(i=0,l=data.length;i<l;i++){
+				time=data[i][0].toString();
+				length=time.length;
+				time=time.substring(length-6,length-4)+":"+time.substring(length-4,length-2)+":"+time.substring(length-2,length);
+				content.push({
+					time:time,
+					price:data[i][1],
+					amount:Math.round(data[i][2]/storage.per)
+				});
+			}
+			//昨收
+			content.preclosePx=storage.preclosePx;
+			KPainter.textPainter.drawMX(content);
 		};
 
 		//处理五档/明细
 		handleText=function(code,text,data){
+			var checker;
 			if(code!=storage.code || text!=storage.text){
 				return ;
 			}
-			if(text==textType[0]){
-				handleWD(data);
-			}else if(text==textType[1]){
-				handleMX(data);
-			}
+			//防止五档/明细处理时昨收数据还没返回
+			checker=setInterval(function(){
+				if(storage.preclosePx!=undefined){
+					clearInterval(checker);
+					if(text==textType[0]){
+						handleWD(data);
+					}else if(text==textType[1]){
+						handleMX(data);
+					}
+				}
+			},10);
 		};
 
 		//校验code,period是否正确，执行蜡烛绘图方法
@@ -2969,7 +3017,7 @@
 				url:"https://open.hscloud.cn/quote/v1/real",
 				contentType:"application/x-www-form-urlencoded; charset=utf-8",
 				data:{
-					en_prod_code:storage.code,
+					en_prod_code:code,
 					fields:"bid_grp,offer_grp"
 				},
 				beforeSend: function(request) {
@@ -2993,7 +3041,7 @@
 				url:"https://open.hscloud.cn/quote/v1/tick",
 				contentType:"application/x-www-form-urlencoded; charset=utf-8",
 				data:{
-					prod_code:storage.code,
+					prod_code:code,
 					fields:"hq_px,business_amount",
 					data_count:10
 				},
@@ -3002,7 +3050,7 @@
 				},
 				success:function(result){
 					if(result){
-						console.log(result);
+						handleText(code,text,result.data.tick[code]);
 					}
 				},
 				error:function(error){
