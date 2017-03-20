@@ -22,7 +22,7 @@
 		//dom元素
 		var container,realCanvas,cacheCanvas,realContext,cacheContext,pixel,
 			realCursorCanvas,cacheCursorCanvas,realCursorContext,cacheCursorContext,
-			textContainer,canvasContainer;
+			textContainer,canvasContainer,maxRate,gridExpand;
 		//配置变量
 		var rawData,process,speed,totalTime,painterStack,kColor,kWidth,gapWidth,
 			fontSize,maColor,gapOccupy,dayCount,loading,cursorIndex,cursorX;
@@ -48,6 +48,10 @@
 			gapOccupy=0.4;
 			//文字大小
 			fontSize=24;
+			//最大值扩大比例
+			maxRate=1;
+			//边框扩大值
+			gridExpand=pixel*3;
 			//线性动画下动画总时长
 			totalTime=800;
 			//线性动画下递增速度（渐变动画时无效）
@@ -240,7 +244,7 @@
 							min=macd[i].data;
 						}
 					}
-					max=Math.max(max,Math.abs(min));
+					max=Math.max(max,Math.abs(min))*maxRate;
 					min=-max;
 					range=max*2;
 					for(i=start;i<end;i++){
@@ -499,7 +503,6 @@
 			 */
 			handleData=function(){
 				var i,j,temp;
-				amount=end-start;
 				//处理ma头尾补图形引起的作用于变化问题
 				max=data[start][2];
 				min=data[start][3];
@@ -548,6 +551,7 @@
 						}
 					}
 				}
+				max*=maxRate;
 				range=max-min;
 				calcAxis();
 			};
@@ -854,13 +858,14 @@
 			 * 接收二维数组为参数，每一项包含[日期，开盘价，最高价，最低价，收盘价，成交量];
 			 * candleData本身为数组，包含maData指针指向均线数组，axis属性指向坐标数组
 			 */
-			drawReady=function(candleData,startPosition,endPosition){
+			drawReady=function(candleData,startPosition,endPosition,candleAmount){
 				if(!candleData || candleData.length==0){
 					return ;
 				}
 				data=candleData;
 				start=startPosition;
 				end=endPosition;
+				amount=candleAmount;
 				handleData();
 			};
 
@@ -962,6 +967,7 @@
 						}
 					}
 				}
+				max*=maxRate;
 				calcAxis();
 			};
 
@@ -1186,7 +1192,7 @@
 				}
 				//记录数据最大值（不一定是y轴最大值），后面设置渐变用
 				valueMax=max;
-				max=Math.max(max-middle,Math.abs(min-middle));
+				max=Math.max(max-middle,Math.abs(min-middle))*maxRate;
 				max=middle+max;
 				min=middle-(max-middle);
 				range=max-min;
@@ -1195,15 +1201,17 @@
 
 			//绘制分时图边框
 			draw1Grid=function(){
-				var stepY,avg,i,l,x,position,date;
+				var stepY,avg,i,l,x,position,date,gridTop,gridBottom;
 				cacheContext.beginPath();
 				cacheContext.strokeStyle="#000";
 				cacheContext.lineWidth=1;
 				//绘制实线
-				cacheContext.moveTo(leftX,topY);
-				cacheContext.lineTo(rightX,topY);
-				cacheContext.lineTo(rightX,bottomY);
-				cacheContext.lineTo(leftX,bottomY);
+				gridTop=topY-gridExpand;
+				gridBottom=bottomY+gridExpand;
+				cacheContext.moveTo(leftX,gridTop);
+				cacheContext.lineTo(rightX,gridTop);
+				cacheContext.lineTo(rightX,gridBottom);
+				cacheContext.lineTo(leftX,gridBottom);
 				cacheContext.closePath();
 				cacheContext.stroke();
 				//绘制虚线
@@ -1342,15 +1350,17 @@
 
 			//绘制五日分时网格
 			draw5Grid=function(){
-				var stepY,i,x,amount,l,date,position;
+				var stepY,i,x,amount,l,date,position,gridTop,gridBottom;
 				cacheContext.beginPath();
 				cacheContext.strokeStyle="#000";
 				cacheContext.lineWidth=1;
 				//绘制实线
-				cacheContext.moveTo(leftX,topY);
-				cacheContext.lineTo(rightX,topY);
-				cacheContext.lineTo(rightX,bottomY);
-				cacheContext.lineTo(leftX,bottomY);
+				gridTop=topY-gridExpand;
+				gridBottom=bottomY+gridExpand;
+				cacheContext.moveTo(leftX,gridTop);
+				cacheContext.lineTo(rightX,gridTop);
+				cacheContext.lineTo(rightX,gridBottom);
+				cacheContext.lineTo(leftX,gridBottom);
 				cacheContext.closePath();
 				cacheContext.stroke();
 				//绘制虚线
@@ -1734,6 +1744,7 @@
 						max=data[i][3];
 					}
 				}
+				max*=maxRate;
 				calcAxis();
 			};
 
@@ -2105,8 +2116,10 @@
 			draw=function(){
 				var start;
 				start=currPosition-currScale;
+				start=start<0 ? 0:start;
+				currPosition=currPosition>totalLength ? totalLength:currPosition;
 				for(var i in painterStack){
-					painterStack[i].drawReady(data,start,currPosition);
+					painterStack[i].drawReady(data,start,currPosition,currScale);
 				}
 				animate();
 			};
@@ -2115,9 +2128,12 @@
 			init=function(){
 				data=rawData;
 				totalLength=data.length;
-				minScale=totalLength>40 ? 40:totalLength;
+				/*minScale=totalLength>40 ? 40:totalLength;
 				maxScale=totalLength>100 ? 100:totalLength;
-				currScale=totalLength>60 ? 60:totalLength;
+				currScale=totalLength>60 ? 60:totalLength;*/
+				minScale=40;
+				maxScale=100;
+				currScale=totalLength>minScale ? (totalLength>60 ? 60:totalLength):minScale;
 				currPosition=totalLength;
 				calcMA();
 				calcColor();
