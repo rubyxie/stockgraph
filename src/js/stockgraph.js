@@ -2401,7 +2401,7 @@
 						minScale=parseInt(totalLength*0.4);
 					}else{
 						scaleStep=5;
-						scrollStep=2;
+						scrollStep=1;
 						minScale=parseInt(totalLength*0.6);
 					}
 					maxScale=totalLength;
