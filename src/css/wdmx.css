@@ -83,7 +83,7 @@ html{
 .wd_mm span:nth-child(2) {
     text-align:center;
     width: 40%;
-    margin-right: 5%;
+    margin-left: 5%;
 }
 
 .wd_mm span:nth-child(3) {
@@ -144,17 +144,17 @@ html{
 }
 
 .wd_mx span.time {
-    font-size: 0.15rem; color: #999;
+    color: #999;
 }
 
 .wd_mx span:first-child{
-    width:20%;
+    width:30%;
     margin-right:5%;
 }
 
 .wd_mx span:nth-child(2) {
-    width:40%;
-    margin-right:5%;
+    width:30%;
+    margin-left:5%;
     text-align: center;
 }
 
