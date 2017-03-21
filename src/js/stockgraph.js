@@ -1422,7 +1422,8 @@
 
 			//绘制五日分时网格
 			draw5Grid=function(){
-				var stepY,i,x,amount,l,date,position,gridTop,gridBottom;
+				var stepY,i,x,amount,l,date,position,gridTop,
+					gridBottom,wordLength;
 				cacheContext.beginPath();
 				cacheContext.strokeStyle="#000";
 				cacheContext.lineWidth=1;
@@ -1462,6 +1463,11 @@
 						x=leftX+(position-start)*(gapWidth+kWidth);
 						date=data[position][0]+"";
 						date=date.substring(4,6)+"-"+date.substring(6,8);
+						wordLength=cacheContext.measureText(date).width;
+						if(x+wordLength>rightX){
+							cacheContext.textAlign="right";
+							x=rightX;
+						}
 						cacheContext.fillText(date,x,gridBottom);
 						painterTool.drawDashed(
 							{x:painterTool.getOdd(x),y:painterTool.getOdd(gridTop)},
