@@ -5,15 +5,18 @@
 	var KPainter,requestDispatcher,pageControl,Config,StockGraph;
 	//避免marketDetail请求过大而设置的本地变量
 	Config={
-		SS:{
-			trade_section_grp:[{open_time:930,close_time:1130},{open_time:1300,close_time:1500}]
+		tradeSectionGrp:{
+			SS:{
+				trade_section_grp:[{open_time:930,close_time:1130},{open_time:1300,close_time:1500}]
+			},
+			SZ:{
+				trade_section_grp:[{open_time:930,close_time:1130},{open_time:1300,close_time:1500}]
+			},
+			HKM:{
+				trade_section_grp:[{open_time:930,close_time:1200},{open_time:1300,close_time:1600}]
+			}
 		},
-		SZ:{
-			trade_section_grp:[{open_time:930,close_time:1130},{open_time:1300,close_time:1500}]
-		},
-		HKM:{
-			trade_section_grp:[{open_time:930,close_time:1200},{open_time:1300,close_time:1600}]
-		}
+		AmericanStockList:["A","CBOT","COMEX","N","NYMEX","O","XBUS"]
 	};
 	/*
 	 * K线绘图器。本身作为总控制器，内部有多个绘图器
@@ -1148,7 +1151,7 @@
 			var initSize,drawReady,resizeDraw,initValue,draw1Grid,handleData,
 				draw1Frame,calcAxis,insideOf,draw1Trend,draw1Text,draw5Frame,
 				draw5Grid,draw5Trend,draw5Text,drawFrame,showCursor,drawCursor,
-				drawXTip,drawYTip,drawRoundRect;
+				drawXTip,drawYTip,drawRoundRect,drawBall;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
@@ -1197,6 +1200,18 @@
 				min=middle-(max-middle);
 				range=max-min;
 				calcAxis();
+			};
+
+			//绘制头部球
+			drawBall=function(x,y){
+				cacheContext.beginPath();
+				cacheContext.fillStyle="rgba(59,126,237,0.30)";
+				cacheContext.arc(x,y,kWidth*3,0,2*Math.PI,false);
+				cacheContext.fill();
+				cacheContext.beginPath();
+				cacheContext.fillStyle="#3b7fed";
+				cacheContext.arc(x,y,kWidth*1.5,0,2*Math.PI,false);
+				cacheContext.fill();
 			};
 
 			//绘制分时图边框
@@ -1278,7 +1293,7 @@
 
 			//绘制分时图折线图&渐变阴影图
 			draw1Trend=function(){
-				var i,l,gradient;
+				var i,l,gradient,ballY;
 				//避免出现卡顿动画
 				if(end-start<40){
 					process=1;
@@ -1342,10 +1357,15 @@
 				if(trendX>rightX){
 					trendX=rightX;
 				}
+				//动画过程
 				if(i<data.length){
 					cacheContext.lineTo(trendX,data[i].avgAxis);
 				}
 				cacheContext.stroke();
+				if(process==1){
+					ballY=data[i-1].axis;
+					drawBall(trendX,ballY);
+				}
 			};
 
 			//绘制五日分时网格
@@ -1973,7 +1993,6 @@
 				temp=data.offer;
 				for(i=0,l=temp.length;i<l;i++){
 					color=temp[i].price<data.preclosePx ? "d_color":"z_color";
-					console.log(temp[i].price,data.preclosePx,color);
 					wdTemplate+='<p class="clearfix">'
 									+'<span>卖'+(5-i)+'</span>'
 									+'<span class="'+color+'">'+temp[i].price+'</span>'
@@ -2900,7 +2919,8 @@
 
 		//检查数据完备与否，计算分时总量，时间分布。storage在刷新股票时会清空
 		handleMarketDetail=function(code,period,data){
-			var marketDetail,amount,temp,open,close,hour,minute;
+			var marketDetail,amount,temp,open,close,hour,minute,inAmerica,
+				openHour,closeHour,openMinute,closeMinute;
 			marketDetail=data.trade_section_grp;
 			//openapi返回的时序有问题，冒泡排序
 			for(var i=0,l=marketDetail.length;i<l;i++){
@@ -2914,12 +2934,33 @@
 			}
 			//计算时间差
 			amount=0;
+			inAmerica=Config.AmericanStockList.indexOf(code.split(".")[1])>-1 ? true:false;
 			for(i=0;i<l;i++){
+				console.log(marketDetail[i].open_time,marketDetail[i].close_time);
 				open=marketDetail[i].open_time.toString();
 				close=marketDetail[i].close_time.toString();
-				hour=close.substring(0,close.length-2)-open.substring(0,open.length-2);
-				minute=close.substring(close.length-2,close.length)-open.substring(open.length-2,open.length);
+				openHour=open.substring(0,open.length-2);
+				closeHour=close.substring(0,close.length-2);
+				openMinute=open.substring(open.length-2,open.length);
+				closeMinute=close.substring(close.length-2,close.length);
+				hour=closeHour-openHour;
+				minute=closeMinute-openMinute;
+				//13:30-15:00
+				if(minute<0){
+					hour-=1;
+					minute+=60;
+				}
 				amount+=hour*60+minute;
+				if(inAmerica){
+					//美股转换时差
+					openHour=openHour-13;
+					openHour=openHour<0 ? openHour+24:openHour;
+					marketDetail[i].open_time=openHour+openMinute;
+					closeHour=closeHour-13;
+					closeHour=closeHour<0 ? closeHour+24:closeHour;
+					marketDetail[i].close_time=closeHour+closeMinute;
+				}
+				console.log(marketDetail[i].open_time,marketDetail[i].close_time);
 			}
 			if(period==10){
 				marketDetail.amount=amount;
@@ -3144,8 +3185,8 @@
 		queryMarketDetail=function(code,period){
 			var postfix=code.split(".")[1];
 			//避免请求超时
-			if(Config[postfix]){
-				handleMarketDetail(code,period,Config[postfix]);
+			if(Config.tradeSectionGrp[postfix]){
+				handleMarketDetail(code,period,Config.tradeSectionGrp[postfix]);
 				return ;
 			}
 			//请求marketDetail
