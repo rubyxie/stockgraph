@@ -839,7 +839,6 @@
 					cursorIndex++;
 					cursorX+=width;
 				}
-				console.log(cursorX,x);
 				cursorX=painterTool.getOdd(cursorX-width/2);*/
 				//尾部取数据数组越界
 				cursorIndex+=start-1;
@@ -1184,8 +1183,8 @@
 				amount=marketDetail.amount;
 				middle=data.preclosePx;
 				max=min=middle;
-				//for(i=0,l=data.length;i<l;i++){
-				for(i=start;i<end;i++){
+				for(i=0,l=data.length;i<l;i++){
+				//for(i=start;i<end;i++){
 					if(max<data[i][1]){
 						max=data[i][1];
 					}
@@ -1233,8 +1232,8 @@
 				stepY=height/4;
 				for(i=1;i<4;i++){
 					painterTool.drawDashed(
-						{x:painterTool.getOdd(leftX),y:painterTool.getOdd(topY+i*stepY)},
-						{x:painterTool.getOdd(rightX),y:painterTool.getOdd(topY+i*stepY)}
+						{x:painterTool.getOdd(leftX),y:painterTool.getOdd(gridTop+i*stepY)},
+						{x:painterTool.getOdd(rightX),y:painterTool.getOdd(gridTop+i*stepY)}
 					);
 				}
 				//绘制分时时间
@@ -1248,21 +1247,29 @@
 					if(position>=start && position<start+amount){
 						x=leftX+(position-start)*(gapWidth+kWidth);
 						painterTool.drawDashed(
-							{x:painterTool.getOdd(x),y:painterTool.getOdd(topY)},
-							{x:painterTool.getOdd(x),y:painterTool.getOdd(bottomY)}
+							{x:painterTool.getOdd(x),y:painterTool.getOdd(gridTop)},
+							{x:painterTool.getOdd(x),y:painterTool.getOdd(gridBottom)}
 						);
-						cacheContext.fillText(marketDetail[i-1].close_time+"/"+marketDetail[i].open_time,x,topY);
+						cacheContext.fillText(marketDetail[i-1].close_time+"/"+marketDetail[i].open_time,x,gridTop);
 					}
 				}
 				//绘制头尾x轴时间
 				cacheContext.textAlign="left";
-				date=data[start][0]+"";
-				date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
-				cacheContext.fillText(date,leftX,bottomY);
+				if(data[start]){
+					date=data[start][0]+"";
+					date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
+				}else{
+					date="--";
+				}
+				cacheContext.fillText(date,leftX,gridBottom);
 				cacheContext.textAlign="right";
-				date=data[end-1][0]+"";
-				date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
-				cacheContext.fillText(date,rightX,bottomY);
+				if(data[end-1]){
+					date=data[end-1][0]+"";
+					date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
+				}else{
+					date="--";
+				}
+				cacheContext.fillText(date,rightX,gridBottom);
 			};
 
 			//绘制坐标轴文字
@@ -1324,7 +1331,7 @@
 					gradient.addColorStop(0.45,"#c2deff");
 					gradient.addColorStop(1,"rgba(255,255,255,0)");
 				}catch(e){
-					console.log("openapiError:",e);
+					console.info("openapiError:",e);
 				}
 				cacheContext.fillStyle=gradient;
 				cacheContext.moveTo(leftX,bottomY);
@@ -1388,8 +1395,8 @@
 				stepY=height/amount;
 				for(i=1;i<amount;i++){
 					painterTool.drawDashed(
-						{x:painterTool.getOdd(leftX),y:painterTool.getOdd(topY+i*stepY)},
-						{x:painterTool.getOdd(rightX),y:painterTool.getOdd(topY+i*stepY)}
+						{x:painterTool.getOdd(leftX),y:painterTool.getOdd(gridTop+i*stepY)},
+						{x:painterTool.getOdd(rightX),y:painterTool.getOdd(gridTop+i*stepY)}
 					);
 				}
 				//绘制分时时间
@@ -1402,7 +1409,7 @@
 				if(start==0){
 					date=data[0][0]+"";
 					date=date.substring(4,6)+"-"+date.substring(6,8);
-					cacheContext.fillText(date,leftX,bottomY);
+					cacheContext.fillText(date,leftX,gridBottom);
 				}
 				for(i=1;i<amount;i++){
 					position=i*l;
@@ -1410,10 +1417,10 @@
 						x=leftX+(position-start)*(gapWidth+kWidth);
 						date=data[position][0]+"";
 						date=date.substring(4,6)+"-"+date.substring(6,8);
-						cacheContext.fillText(date,x,bottomY);
+						cacheContext.fillText(date,x,gridBottom);
 						painterTool.drawDashed(
-							{x:painterTool.getOdd(x),y:painterTool.getOdd(topY)},
-							{x:painterTool.getOdd(x),y:painterTool.getOdd(bottomY)}
+							{x:painterTool.getOdd(x),y:painterTool.getOdd(gridTop)},
+							{x:painterTool.getOdd(x),y:painterTool.getOdd(gridBottom)}
 						);
 					}
 				}
@@ -1525,7 +1532,9 @@
 			//绘制一日分时图帧
 			draw1Frame=function(){
 				draw1Grid();
-				draw1Trend();
+				if(start<data.length){
+					draw1Trend();
+				}
 				draw1Text();
 			};
 
@@ -1641,7 +1650,7 @@
 
 			//绘制分时图十字光标
 			drawCursor=function(x,y){
-				var width=gapWidth+kWidth;
+				var temp,width=gapWidth+kWidth;
 				/*-------------公式计算找坐标---------------*/
 				//计算触控事件所在的K线数据索引
 				/*cursorIndex=Math.ceil((x-leftX-gapWidth/2-width)/width)+1;
@@ -1658,14 +1667,16 @@
 					cursorIndex++;
 					cursorX+=width;
 				}
+				//尾部取数据数组越界
+				cursorIndex+=start-1;
 				if(cursorIndex<data.length){
 					cursorX=painterTool.getOdd(cursorX-width/2);
 				}else{
-					cursorIndex=data.length-start;
-					cursorX=painterTool.getOdd(leftX+(cursorIndex-1)*width);
+					temp=data.length-start-1;
+					temp=temp<0 ? 0:temp;
+					cursorIndex=data.length-1;
+					cursorX=painterTool.getOdd(leftX+temp*width);
 				}
-				//尾部取数据数组越界
-				cursorIndex+=start-1;
 				drawXTip(cursorX,data[cursorIndex]);
 				drawYTip(painterTool.getOdd(y),data[cursorIndex]);
 			};
@@ -1758,8 +1769,9 @@
 			//计算成交量的最大值
 			handleData=function(){
 				var i;
-				max=data[start][3];
-				for(i=start+1;i<end;i++){
+				max=data[0][3];
+				for(i=0,l=data.length;i<l;i++){
+				//for(i=start+1;i<end;i++){
 					if(max<data[i][3]){
 						max=data[i][3];
 					}
@@ -1810,36 +1822,38 @@
 			drawFrame=function(){
 				var width=kWidth/2,y;
 				drawGrid();
-				//绘制头部半个交易量柱
-				cacheContext.beginPath();
-				cacheContext.fillStyle=kColor[data[start].color];
-				cacheContext.moveTo(leftX,bottomY);
-				cacheContext.lineTo(leftX+width,bottomY);
-				y=bottomY-data[start].baHeight*process;
-				cacheContext.lineTo(leftX+width,y);
-				cacheContext.lineTo(leftX,y);
-				cacheContext.closePath();
-				cacheContext.fill();
-				//绘制中间交易量柱
-				barX=leftX+gapWidth+width;
-				for(var i=start+1;i<end-1;i++){
-					drawBar(barX,data[i]);
-					barX+=gapWidth+kWidth;
-				}
-				//绘制尾部半个交易量柱
-				if(barX+kWidth>rightX){
+				if(start<data.length){
+					//绘制头部半个交易量柱
 					cacheContext.beginPath();
-					cacheContext.fillStyle=kColor[data[i].color];
-					cacheContext.moveTo(rightX,bottomY);
-					cacheContext.lineTo(rightX-width,bottomY);
-					y=bottomY-data[i].baHeight*process;
-					cacheContext.lineTo(rightX-width,y);
-					cacheContext.lineTo(rightX,y);
+					cacheContext.fillStyle=kColor[data[start].color];
+					cacheContext.moveTo(leftX,bottomY);
+					cacheContext.lineTo(leftX+width,bottomY);
+					y=bottomY-data[start].baHeight*process;
+					cacheContext.lineTo(leftX+width,y);
+					cacheContext.lineTo(leftX,y);
 					cacheContext.closePath();
 					cacheContext.fill();
-				}else{
-					if(i<data.length){
+					//绘制中间交易量柱
+					barX=leftX+gapWidth+width;
+					for(var i=start+1;i<end-1;i++){
 						drawBar(barX,data[i]);
+						barX+=gapWidth+kWidth;
+					}
+					//绘制尾部半个交易量柱
+					if(barX+kWidth>rightX){
+						cacheContext.beginPath();
+						cacheContext.fillStyle=kColor[data[i].color];
+						cacheContext.moveTo(rightX,bottomY);
+						cacheContext.lineTo(rightX-width,bottomY);
+						y=bottomY-data[i].baHeight*process;
+						cacheContext.lineTo(rightX-width,y);
+						cacheContext.lineTo(rightX,y);
+						cacheContext.closePath();
+						cacheContext.fill();
+					}else{
+						if(i<data.length){
+							drawBar(barX,data[i]);
+						}
 					}
 				}
 			};
@@ -1926,9 +1940,10 @@
 		 */
 		textPainter=(function(){
 			//变量
-			var wdContent,mxContent,buttonTemplate,wdContainer,mxContainer;
+			var wdContent,mxContent,buttonTemplate,wdContainer,mxContainer,wdBtn,mxBtn;
 			//方法
-			var fillWDTemplate,fillMXTemplate,drawWD,drawMX,init,bindListener;
+			var fillWDTemplate,fillMXTemplate,drawWD,drawMX,init,bindListener,
+				showWD,showMX;
 
 			//初始化text容器，加入dom树，display=none
 			init=function(){
@@ -1952,30 +1967,40 @@
 				//明细容器
 				mxContainer=document.createElement("div");
 				mxContainer.className="wd_mx";
+				//五档/明细按钮
+				wdBtn=document.getElementById("stockgraph-wd");
+				mxBtn=document.getElementById("stockgraph-mx");
 				//绑定切换事件
 				bindListener();
 			};
 
+			//切换到五档
+			showWD=function(){
+				wdContainer.style.display="block";
+				wdBtn.className="active";
+				mxContainer.style.display="none";
+				mxBtn.className="";
+			};
+
+			//切换到明细
+			showMX=function(){
+				wdContainer.style.display="none";
+				wdBtn.className="";
+				mxContainer.style.display="block";
+				mxBtn.className="active";
+			};
+
 			//绑定监听
 			bindListener=function(){
-				var wdBtn,mxBtn;
-				wdBtn=document.getElementById("stockgraph-wd");
-				mxBtn=document.getElementById("stockgraph-mx");
 				wdBtn.addEventListener("click",function(){
-					wdContainer.style.display="block";
-					wdBtn.className="active";
-					mxContainer.style.display="none";
-					mxBtn.className="";
+					showWD();
 					if(wdContent!=undefined){
 						fillWDTemplate(wdContent);
 					}
 					requestDispatcher.getWD();
 				});
 				mxBtn.addEventListener("click",function(){
-					wdContainer.style.display="none";
-					wdBtn.className="";
-					mxContainer.style.display="block";
-					mxBtn.className="active";
+					showMX();
 					if(mxContent!=undefined){
 						fillMXTemplate(mxContent);
 					}
@@ -1992,7 +2017,7 @@
 				wdTemplate='<div class="wd_buy">';
 				temp=data.offer;
 				for(i=0,l=temp.length;i<l;i++){
-					color=temp[i].price<data.preclosePx ? "d_color":"z_color";
+					color=temp[i].price<data.lastClosePx ? "d_color":"z_color";
 					wdTemplate+='<p class="clearfix">'
 									+'<span>卖'+(5-i)+'</span>'
 									+'<span class="'+color+'">'+temp[i].price+'</span>'
@@ -2004,7 +2029,7 @@
 				wdTemplate+='<div class="wd_sell">';
 				temp=data.bid;
 				for(i=0,l=temp.length;i<l;i++){
-					color=temp[i].price<data.preclosePx ? "d_color":"z_color";
+					color=temp[i].price<data.lastClosePx ? "d_color":"z_color";
 					wdTemplate+='<p class="clearfix">'
 									+'<span>买'+(i+1)+'</span>'
 									+'<span class="'+color+'">'+temp[i].price+'</span>'
@@ -2026,7 +2051,7 @@
 				var i,l,color,mxTemplate;
 				mxTemplate='<div class="mx_wrap">';
 				for(i=0,l=data.length;i<l;i++){
-					color=data[i].price<data.preclosePx ? "d_color":"z_color";
+					color=data[i].price<data.lastClosePx ? "d_color":"z_color";
 					mxTemplate+='<p>'
 									+'<span class="time">'+data[i].time+'</span>'
 									+'<span class="'+color+'">'+data[i].price+'</span>'
@@ -2043,12 +2068,14 @@
 
 			//绘制五档
 			drawWD=function(content){
+				showWD();
 				wdContent=content;
 				fillWDTemplate(content);
 			};
 
 			//绘制明细
 			drawMX=function(content){
+				showMX();
 				mxContent=content;
 				fillMXTemplate(content);
 			};
@@ -2313,11 +2340,14 @@
 			//初始化比例尺
 			init=function(){
 				data=rawData;
-				totalLength=data.marketDetail.amount;
-				minScale=parseInt(totalLength*0.65);
-				maxScale=totalLength;
-				currScale=totalLength;
-				currPosition=totalLength;
+				if(!data.append){
+					//非增量初始化
+					totalLength=data.marketDetail.amount;
+					minScale=parseInt(totalLength*0.65);
+					maxScale=totalLength;
+					currScale=totalLength;
+					currPosition=totalLength;
+				}
 				calcBusinessAmount();
 				calcColor();
 				draw();
@@ -2713,11 +2743,13 @@
 		 * 	trend:
 		 * 	amount:
 		 * 	preclosePx:
+		 * 	text
+		 * 	lastClosePx
 		 * }
 		 */
 		storage={};
-		//五档/明细
-		textType=["wd","mx"];
+		//五档/明细/默认值
+		textType=["wd","mx","wd"];
 		supportType={
 			"1分钟":1,
 			"5分钟":2,
@@ -2845,7 +2877,7 @@
 				});
 			}
 			//昨收
-			content.preclosePx=storage.preclosePx;
+			content.lastClosePx=storage.lastClosePx;
 			KPainter.textPainter.drawWD(content);
 			//保存每手股数，供明细使用
 			storage.per=per;
@@ -2869,7 +2901,7 @@
 				});
 			}
 			//昨收
-			content.preclosePx=storage.preclosePx;
+			content.lastClosePx=storage.lastClosePx;
 			KPainter.textPainter.drawMX(content);
 		};
 
@@ -2881,7 +2913,7 @@
 			}
 			//防止五档/明细处理时昨收数据还没返回
 			checker=setInterval(function(){
-				if(storage.preclosePx!=undefined){
+				if(storage.lastClosePx!=undefined){
 					clearInterval(checker);
 					if(text==textType[0]){
 						handleWD(data);
@@ -2986,7 +3018,6 @@
 						queryMarketDetail(storage.code,storage.period);
 						queryTrend(storage.code,storage.period);
 						queryPreclosePx(storage.code,storage.period);
-						storage.text=textType[0];
 						appendText(storage.code,storage.text);
 						setTimer();
 						break;
@@ -2995,7 +3026,6 @@
 						queryMarketDetail(storage.code,storage.period);
 						queryTrend5Day(storage.code,storage.period);
 						queryPreclosePx(storage.code,storage.period);
-						storage.text=textType[0];
 						appendText(storage.code,storage.text);
 						setTimer();
 						break;
@@ -3056,7 +3086,7 @@
 						try{
 							minTime=data[data.length-1][0].toString().substring(8,12);
 						}catch(e){
-							console.log("openapiError:",e);
+							console.info("openapiError:",e);
 						}
 						storeStorage(code,period,"trend",data);
 					}
@@ -3233,10 +3263,19 @@
 				success:function(result){
 					if(result){
 						if(code==storage.code){
-							if(refreshNew){
-								storage.preclosePx=result.data.candle[code][0][1];
-							}else{
+							if(period==10){
+								storage.lastClosePx=result.data.candle[code][0][1];
+							}else if(period==11){
+								storage.lastClosePx=result.data.candle[code][4][1];
+							}
+							if(!refreshNew){
+								//如果是初始化，需要走storeStorage以执行handleTrend
 								storeStorage(code,period,"preclosePx",result.data.candle[code][0][1]);
+							}else{
+								//如果是开盘前，不需执行handleTrend
+								if(period==storage.period){
+									storage.preclosePx=result.data.candle[code][0][1];
+								}
 							}
 						}
 					}
@@ -3283,10 +3322,19 @@
 		 * 10:分时 11：五日
 		 */
 		getKLine=function(period,code){
+			var per;
 			if(code!=undefined){
+				//保存之前的text状态
+				if(code!=storage.code){
+					textType[3]=textType[0];
+				}
+				//保存每手股数
+				per=storage.per;
 				//切换股票时刷新storage，避免分时图残留数据影响
 				storage={};
 				storage.code=code;
+				storage.text=textType[3];
+				storage.per=per;
 			}
 			storage.period=supportType[period];
 			if(authorization==undefined){
@@ -3299,12 +3347,14 @@
 		//切换到查询五档
 		getWD=function(){
 			storage.text=textType[0];
+			textType[3]=storage.text;
 			appendText(storage.code,storage.text);
 		};
 
 		//切换到查询明细
 		getMX=function(){
 			storage.text=textType[1];
+			textType[3]=storage.text;
 			appendText(storage.code,storage.text);
 		};
 
