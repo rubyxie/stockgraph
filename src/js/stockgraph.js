@@ -139,6 +139,16 @@
 					result=value%2==0 ? value-1:value;
 				}
 				return result;
+			},
+			//美国时间转中国时间
+			transferAmericaTime:function(time){
+				var hour,minute;
+				hour=time.substring(time.length-4,time.length-2);
+				minute=time.substring(time.length-2,time.length);
+				hour=hour-13;
+				hour=hour<0 ? hour+24:hour;
+				hour=hour<10 ? "0"+hour:hour;
+				return time.substring(0,time.length-4)+hour+minute;
 			}
 		};
 		/*------------------------工具方法end---------------------------*/
@@ -1256,15 +1266,27 @@
 				//绘制头尾x轴时间
 				cacheContext.textAlign="left";
 				if(data[start]){
-					date=data[start][0]+"";
+					if(data.marketDetail.inAmerica){
+						date=painterTool.transferAmericaTime(data[start][0]+"");
+					}else{
+						date=data[start][0]+"";
+					}
 					date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
 				}else{
 					date="--";
 				}
 				cacheContext.fillText(date,leftX,gridBottom);
 				cacheContext.textAlign="right";
-				if(date!="--"){
-					date=data[end-1][0]+"";
+				if(end>=data.length){
+					//marketDetail的时间已经转换过了
+					date=data.marketDetail[data.marketDetail.length-1].close_time+"";
+					date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
+				}else{
+					if(data.marketDetail.inAmerica){
+						date=painterTool.transferAmericaTime(data[end-1][0]+"");
+					}else{
+						date=data[end-1][0]+"";
+					}
 					date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
 				}
 				cacheContext.fillText(date,rightX,gridBottom);
@@ -1362,13 +1384,13 @@
 				if(trendX>rightX){
 					trendX=rightX;
 				}
-				//动画过程
 				if(i<data.length){
 					cacheContext.lineTo(trendX,data[i].avgAxis);
 				}
 				cacheContext.stroke();
-				if(process==1){
-					ballY=data[i-1].axis;
+				//绘制头部球
+				if(process==1 && i==data.length-1){
+					ballY=data[i].axis;
 					drawBall(trendX,ballY);
 				}
 			};
@@ -1592,13 +1614,13 @@
 				cacheCursorContext.moveTo(x,topY);
 				cacheCursorContext.lineTo(x,bottomY);
 				cacheCursorContext.stroke();
-				//背景
+				//背景，先设置字体，否则宽度计算错误
+				cacheCursorContext.font=fontSize+"px Arial";
 				content=data[0];
 				contentLength=cacheCursorContext.measureText(content).width/2;
 				drawRoundRect(x-contentLength,bottomY-fontSize,contentLength*2,fontSize);
 				//文字
 				cacheCursorContext.fillStyle="#999";
-				cacheCursorContext.font=fontSize+"px Arial";
 				cacheCursorContext.textBaseline="bottom";
 				contentLength=cacheCursorContext.measureText(content).width/2;
 				if(x+contentLength>rightX){
@@ -2964,9 +2986,8 @@
 			}
 			//计算时间差
 			amount=0;
-			inAmerica=Config.AmericanStockList.indexOf(code.split(".")[1])>-1 ? true:false;
+			marketDetail.inAmerica=Config.AmericanStockList.indexOf(code.split(".")[1])>-1 ? true:false;
 			for(i=0;i<l;i++){
-				console.log(marketDetail[i].open_time,marketDetail[i].close_time);
 				open=marketDetail[i].open_time.toString();
 				close=marketDetail[i].close_time.toString();
 				openHour=open.substring(0,open.length-2);
@@ -2981,16 +3002,17 @@
 					minute+=60;
 				}
 				amount+=hour*60+minute;
-				if(inAmerica){
-					//美股转换时差
+				if(marketDetail.inAmerica){
+					//美股转换时差，painterTool访问不到
 					openHour=openHour-13;
 					openHour=openHour<0 ? openHour+24:openHour;
+					openHour=openHour<10 ? "0"+openHour:openHour;
 					marketDetail[i].open_time=openHour+openMinute;
 					closeHour=closeHour-13;
 					closeHour=closeHour<0 ? closeHour+24:closeHour;
+					closeHour=closeHour<10 ? "0"+closeHour:closeHour;
 					marketDetail[i].close_time=closeHour+closeMinute;
 				}
-				console.log(marketDetail[i].open_time,marketDetail[i].close_time);
 			}
 			if(period==10){
 				marketDetail.amount=amount;
