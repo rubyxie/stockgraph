@@ -1263,11 +1263,9 @@
 				}
 				cacheContext.fillText(date,leftX,gridBottom);
 				cacheContext.textAlign="right";
-				if(data[end-1]){
+				if(date!="--"){
 					date=data[end-1][0]+"";
 					date=date.substring(date.length-4,date.length-2)+":"+date.substring(date.length-2,date.length);
-				}else{
-					date="--";
 				}
 				cacheContext.fillText(date,rightX,gridBottom);
 			};
