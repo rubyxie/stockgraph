@@ -1155,12 +1155,13 @@
 			//变量
 			var data,layout,width,height,leftX,rightX,topY,bottomY,
 				middle,max,min,range,amount,range,start,end,
-				marketDetail,trendX,valueMax,period;
+				marketDetail,trendX,valueMax;
 			//方法
 			var initSize,drawReady,resizeDraw,initValue,draw1Grid,handleData,
 				draw1Frame,calcAxis,insideOf,draw1Trend,draw1Text,draw5Frame,
 				draw5Grid,draw5Trend,draw5Text,drawFrame,showCursor,drawCursor,
-				drawXTip,drawYTip,drawRoundRect,drawBall;
+				drawXTip,drawYTip,drawRoundRect,drawBall,flash,cursorShowed,
+				cursorPositionX,cursorPositionY,turnOffCursor;
 
 			//为固定配置变量赋值
 			layout={a:0.01,b:0.01,c:0.3,d:0.01};
@@ -1211,6 +1212,26 @@
 				calcAxis();
 			};
 
+			//头部球闪烁，会被十字光标影响
+			flash=function(x,y){
+				cacheCursorContext.beginPath();
+				cacheCursorContext.fillStyle="rgba(255,255,240,0.30)";
+				cacheCursorContext.arc(x,y,kWidth*3,0,2*Math.PI,false);
+				cacheCursorContext.fill();
+				cacheCursorContext.beginPath();
+				cacheCursorContext.fillStyle="#4c8ffe";
+				cacheCursorContext.arc(x,y,kWidth*1.5,0,2*Math.PI,false);
+				cacheCursorContext.fill();
+				refreshCursorCache();
+				setTimeout(function(){
+					cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
+					if(cursorShowed){
+						drawCursor(cursorPositionX,cursorPositionY);
+					}
+					refreshCursorCache();
+				},200);
+			};
+
 			//绘制头部球
 			drawBall=function(x,y){
 				cacheContext.beginPath();
@@ -1221,6 +1242,10 @@
 				cacheContext.fillStyle="#3b7fed";
 				cacheContext.arc(x,y,kWidth*1.5,0,2*Math.PI,false);
 				cacheContext.fill();
+				if(data.append){
+					alert(data.append);
+					flash(x,y);
+				}
 			};
 
 			//绘制分时图边框
@@ -1743,7 +1768,15 @@
 
 			//绘制分时图十字光标
 			showCursor=function(x,y){
+				cursorShowed=true;
+				cursorPositionX=x;
+				cursorPositionY=y;
 				drawCursor(x,y);
+			};
+
+			//关闭十字光标
+			turnOffCursor=function(){
+				cursorShowed=false;
 			};
 
 			return {
@@ -1752,6 +1785,7 @@
 				drawFrame:drawFrame,
 				resizeDraw:resizeDraw,
 				showCursor:showCursor,
+				turnOffCursor:turnOffCursor,
 				insideOf:insideOf
 			};
 		})();
@@ -2355,6 +2389,7 @@
 			clearCursor=function(){
 				cacheCursorContext.clearRect(0,0,cacheCursorCanvas.width,cacheCursorCanvas.height);
 				refreshCursorCache();
+				trendPainter.turnOffCursor();
 			};
 
 			//初始化比例尺
