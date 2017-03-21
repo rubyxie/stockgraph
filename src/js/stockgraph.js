@@ -1216,11 +1216,11 @@
 			flash=function(x,y){
 				cacheCursorContext.beginPath();
 				cacheCursorContext.fillStyle="rgba(255,255,240,0.30)";
-				cacheCursorContext.arc(x,y,kWidth*3,0,2*Math.PI,false);
+				cacheCursorContext.arc(x,y,kWidth*2.6,0,2*Math.PI,false);
 				cacheCursorContext.fill();
 				cacheCursorContext.beginPath();
 				cacheCursorContext.fillStyle="#4c8ffe";
-				cacheCursorContext.arc(x,y,kWidth*1.5,0,2*Math.PI,false);
+				cacheCursorContext.arc(x,y,kWidth*1.4,0,2*Math.PI,false);
 				cacheCursorContext.fill();
 				refreshCursorCache();
 				setTimeout(function(){
@@ -1236,11 +1236,11 @@
 			drawBall=function(x,y){
 				cacheContext.beginPath();
 				cacheContext.fillStyle="rgba(59,126,237,0.30)";
-				cacheContext.arc(x,y,kWidth*3,0,2*Math.PI,false);
+				cacheContext.arc(x,y,kWidth*2.6,0,2*Math.PI,false);
 				cacheContext.fill();
 				cacheContext.beginPath();
 				cacheContext.fillStyle="#3b7fed";
-				cacheContext.arc(x,y,kWidth*1.5,0,2*Math.PI,false);
+				cacheContext.arc(x,y,kWidth*1.4,0,2*Math.PI,false);
 				cacheContext.fill();
 				if(data.append){
 					alert(data.append);
@@ -2324,9 +2324,6 @@
 			//方法
 			var init,draw,enlarge,narrow,scrollRight,scrollLeft,calcColor,
 				calcBusinessAmount,showCursor,clearCursor,resize;
-			//固定变量
-			scaleStep=5;
-			scrollStep=2;
 
 			//计算交易量值
 			calcBusinessAmount=function(){
@@ -2398,7 +2395,15 @@
 				if(!data.append){
 					//非增量初始化
 					totalLength=data.marketDetail.amount;
-					minScale=parseInt(totalLength*0.65);
+					if(data.marketDetail.dayAmount==5){
+						scaleStep=20;
+						scrollStep=5;
+						minScale=parseInt(totalLength*0.4);
+					}else{
+						scaleStep=5;
+						scrollStep=2;
+						minScale=parseInt(totalLength*0.6);
+					}
 					maxScale=totalLength;
 					currScale=totalLength;
 					currPosition=totalLength;
