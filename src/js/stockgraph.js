@@ -80,6 +80,7 @@
 			realCursorContext=realCursorCanvas.getContext("2d");
 			cacheCursorContext=cacheCursorCanvas.getContext("2d");
 			realCursorCanvas.style.position="absolute";
+			realCursorCanvas.style.zIndex=1;
 			canvasContainer.appendChild(realCursorCanvas);
 		};
 		initDom();
@@ -1216,11 +1217,11 @@
 			flash=function(x,y){
 				cacheCursorContext.beginPath();
 				cacheCursorContext.fillStyle="rgba(255,255,240,0.30)";
-				cacheCursorContext.arc(x,y,kWidth*2.6,0,2*Math.PI,false);
+				cacheCursorContext.arc(x,y,kWidth*3,0,2*Math.PI,false);
 				cacheCursorContext.fill();
 				cacheCursorContext.beginPath();
-				cacheCursorContext.fillStyle="#4c8ffe";
-				cacheCursorContext.arc(x,y,kWidth*1.4,0,2*Math.PI,false);
+				cacheCursorContext.fillStyle="rgba(76,143,254,0.5)";
+				cacheCursorContext.arc(x,y,kWidth*1.6,0,2*Math.PI,false);
 				cacheCursorContext.fill();
 				refreshCursorCache();
 				setTimeout(function(){
@@ -1243,7 +1244,6 @@
 				cacheContext.arc(x,y,kWidth*1.4,0,2*Math.PI,false);
 				cacheContext.fill();
 				if(data.append){
-					alert(data.append);
 					flash(x,y);
 				}
 			};
