@@ -65,8 +65,9 @@ html{
 }
 
 .stockgraph_wd_mm p {
+    font-size:0.18rem;
     line-height:0.2rem;
-    margin-bottom:2%;
+    margin-bottom:3%;
     height:18%
 }
 
@@ -133,9 +134,10 @@ html{
 }
 
 .stockgraph_mx_wrap p{
+    font-size:0.18rem;
     height:9%;
     line-height:0.2rem;
-    margin-bottom:1%;
+    margin-bottom:3%;
 }
 
 .stockgraph_wd_mx span {
@@ -144,6 +146,7 @@ html{
 }
 
 .stockgraph_wd_mx span.time {
+    font-size:0.14rem;
     color: #999;
 }
 
