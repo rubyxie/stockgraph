@@ -30,7 +30,7 @@
     beginPage=function(){
         bindTrigger();
         bindSearch();
-        StockGraph.draw("日K",stockCode);
+        StockGraph.draw("分时",stockCode);
     };
 
     Util.ready(beginPage);
