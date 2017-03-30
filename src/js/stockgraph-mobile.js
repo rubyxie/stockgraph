@@ -50,7 +50,7 @@
 			//柱图间隙占比
 			gapOccupy=0.4;
 			//文字大小
-			fontSize=20*pixel;
+			fontSize=21*pixel;
 			//最大值扩大比例
 			maxRate=1;
 			//边框扩大值
@@ -2108,14 +2108,15 @@
 			 * 填充明细模板
 			 */
 			fillMXTemplate=function(data){
-				var i,l,color,mxTemplate;
+				var i,l,color,mxTemplate,direction;
 				mxTemplate='<div class="stockgraph_mx_wrap">';
 				for(i=0,l=data.length;i<l;i++){
 					color=data[i].price<data.lastClosePx ? "d_color":"z_color";
+					direction=data[i].direction==0 ? "d_color":"z_color";
 					mxTemplate+='<p class="clearfix">'
 									+'<span class="time">'+data[i].time+'</span>'
 									+'<span class="'+color+'">'+data[i].price+'</span>'
-									+'<span>'+data[i].amount+'</span>'
+									+'<span class="'+direction+'">'+data[i].amount+'</span>'
 								+'</p>';
 				}
 				mxTemplate+='</div>';
@@ -2693,7 +2694,7 @@
 		 */
 		animate=function(){
 			cacheContext.clearRect(0,0,cacheCanvas.width,cacheCanvas.height);
-			speed=Math.ceil((100-process*100)/30)/100;
+			speed=Math.ceil((100-process*100)/20)/100;
 			process+=speed;
 			if(process<1){
 				for(var i in painterStack){
@@ -2853,7 +2854,7 @@
 					//后台部分接口数据有时间差，前后取缓冲时间
 					if(now>=storage.marketDetail[i].open_time-5 && now<=storage.marketDetail[i].close_time+10){
 						appendTrend();
-						//appendText(storage.code,storage.text);
+						appendText(storage.code,storage.text);
 					}
 				}
 			},6000);
@@ -2963,7 +2964,8 @@
 				content.push({
 					time:time,
 					price:data[i][1],
-					amount:Math.round(data[i][2]/storage.per)
+					amount:Math.round(data[i][2]/storage.per),
+					direction:data[i][3]
 				});
 			}
 			//昨收
@@ -3195,7 +3197,8 @@
 				contentType:"application/x-www-form-urlencoded; charset=utf-8",
 				data:{
 					prod_code:code,
-					fields:"hq_px,business_amount",
+					//0-卖，1-买
+					fields:"hq_px,business_amount,business_direction",
 					data_count:10
 				},
 				beforeSend: function(request) {

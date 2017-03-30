@@ -2108,14 +2108,15 @@
              * 填充明细模板
              */
             fillMXTemplate=function(data){
-                var i,l,color,mxTemplate;
+                var i,l,color,mxTemplate,direction;
                 mxTemplate='<div class="stockgraph_mx_wrap">';
                 for(i=0,l=data.length;i<l;i++){
                     color=data[i].price<data.lastClosePx ? "d_color":"z_color";
+                    direction=data[i].direction==0 ? "d_color":"z_color";
                     mxTemplate+='<p>'
-                        +'<span class="time">'+data[i].time+'</span>'
-                        +'<span class="'+color+'">'+data[i].price+'</span>'
-                        +'<span>'+data[i].amount+'</span>'
+                            +'<span class="time">'+data[i].time+'</span>'
+                            +'<span class="'+color+'">'+data[i].price+'</span>'
+                            +'<span class="'+direction+'">'+data[i].amount+'</span>'
                         +'</p>';
                 }
                 mxTemplate+='</div>';
@@ -2963,7 +2964,8 @@
                 content.push({
                     time:time,
                     price:data[i][1],
-                    amount:Math.round(data[i][2]/storage.per)
+                    amount:Math.round(data[i][2]/storage.per),
+                    direction:data[i][3]
                 });
             }
             //昨收
@@ -3195,7 +3197,7 @@
                 contentType:"application/x-www-form-urlencoded; charset=utf-8",
                 data:{
                     prod_code:code,
-                    fields:"hq_px,business_amount",
+                    fields:"hq_px,business_amount,business_direction",
                     data_count:10
                 },
                 beforeSend: function(request) {
