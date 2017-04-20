@@ -23,8 +23,8 @@
 
     bindSearch=function(){
         var input,search;
-        input=document.querySelector(".sg-input");
-        search=document.querySelector(".sg-submit");
+        input=document.querySelector("#sg-input");
+        search=document.querySelector("#sg-submit");
         search.addEventListener("click",function(){
             if(input.value!=""){
                 stockCode=input.value;
