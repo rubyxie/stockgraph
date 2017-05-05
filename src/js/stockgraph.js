@@ -3107,29 +3107,40 @@
 
         //获取openapi的K线数据
         queryKLine=function(code,period){
-            Util.ajax({
-                type:"get",
-                url:"https://open.hscloud.cn/quote/v1/kline",
-                contentType:"application/x-www-form-urlencoded; charset=utf-8",
-                data:{
-                    get_type:"offset",
-                    prod_code:code,
-                    candle_period:period,
-                    fields:"open_px,high_px,low_px,close_px,business_amount",
-                    data_count:200
-                },
-                beforeSend: function(request) {
-                    request.setRequestHeader("Authorization",authorization);
-                },
-                success:function(result){
-                    if(result){
-                        handleKLine(code,period,result.data.candle[code]);
+            var localKLine;
+            localKLine=sessionStorage.getItem("kline");
+            localKLine=JSON.parse(localKLine);
+            if(localKLine && localKLine[code] && localKLine[code][period]){
+                handleKLine(code,period,localKLine[code][period].data.candle[code]);
+            }else{
+                Util.ajax({
+                    type:"get",
+                    url:"https://open.hscloud.cn/quote/v1/kline",
+                    contentType:"application/x-www-form-urlencoded; charset=utf-8",
+                    data:{
+                        get_type:"offset",
+                        prod_code:code,
+                        candle_period:period,
+                        fields:"open_px,high_px,low_px,close_px,business_amount",
+                        data_count:200
+                    },
+                    beforeSend: function(request) {
+                        request.setRequestHeader("Authorization",authorization);
+                    },
+                    success:function(result){
+                        if(result){
+                            localKLine || (localKLine={});
+                            localKLine[code] || (localKLine[code]={});
+                            localKLine[code][period]=result;
+                            sessionStorage.setItem("kline",JSON.stringify(localKLine));
+                            handleKLine(code,period,result.data.candle[code]);
+                        }
+                    },
+                    error:function(error){
+                        console.error("queryKLine:",error);
                     }
-                },
-                error:function(error){
-                    console.error("queryKLine:",error);
-                }
-            });
+                });
+            }
         };
 
 
@@ -3301,6 +3312,7 @@
                 },
                 success:function(result){
                     if(result){
+                        Config.tradeSectionGrp[postfix]=result.data;
                         handleMarketDetail(code,period,result.data);
                     }
                 },
