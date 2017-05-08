@@ -2802,7 +2802,7 @@
 		var queryToken,queryKLine,queryTrend,queryMarketDetail,queryPreclosePx,handleToken,
 			handleKLine,handleTrend,handleMarketDetail,getKLine,setTimer,storeStorage,
 			queryTrend5Day,appendTrend,handleAppend,queryTick,queryReal,appendText,
-			handleText,handleWD,handleMX;
+			handleText,handleWD,handleMX,getWD,getMX;
 		/*
 		 * storage={
 		 * 	code:
