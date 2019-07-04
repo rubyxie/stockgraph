@@ -3366,10 +3366,10 @@
             });
         };
 
-        //获取openapi的token
+        //获取hundsun-openapi的token
         queryToken=function(){
-            var APPKEY="36925ca9-6768-47f7-8124-fa2a9a8a2c7d";
-            var APPSECRET="d392dff7-14f5-4437-a0b2-5386fa72162f";
+            var APPKEY="your-key";
+            var APPSECRET="your-secret";
             var BASIC="Basic ";
             var auth=Base64.encode(APPKEY+":"+APPSECRET);
             var openId="bigbird-kline:"+Math.random();
