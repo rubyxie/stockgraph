@@ -1,4 +1,4 @@
-# StockGraph
+# stockgraph
 An integrated implementation of stock graph,written by JavaScript and HTML5.
 - Graphs with 11 different time ranges for any stock supported in the Hundsun finance openapi.
 - Markets supported with China,Hongkong,Ameria.
