@@ -8,6 +8,9 @@ An integrated implementation of stock graph,written by JavaScript and HTML5.
 
 
 ## 一个完整的股票K线图实现，使用JavaScript和Html5编写，基于canvas。
+
+> 如果想要使用仓库中提供的源代码运行，请先想HundSun购买OpenAPI的使用权限，并配置代码中的APPKEY和APPSECRET。
+
 ### K线类别：
 - 1分钟
 - 5分钟
