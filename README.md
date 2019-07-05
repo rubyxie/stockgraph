@@ -32,10 +32,11 @@ An integrated implementation of stock graph,written by JavaScript and HTML5.
 - 美股主要交易市场
 
 ### 功能范围
-- K线图、分时图
-- 交易量图
-- MA均线
-- MACD指标
-- 十字光标
-- 左右滑、缩放
-- 单页切换股票
+- 支持K线图
+- 支持分时图
+- 支持交易量图
+- 支持MA均线
+- 支持MACD技术指标
+- 基于浏览器的长按十字光标
+- 基于浏览器的左右滑动、缩放
+- 单页应用，支持股票搜索
